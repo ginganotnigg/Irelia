@@ -1,0 +1,18 @@
+server:
+  host: 0.0.0.0
+  port: 3140
+  gwport: 3141
+
+karma:
+  url: "http://localhost:5000/api/lip-sync"
+
+darius:
+  url: "http://localhost:8080/v1/suggest_interview_question"
+
+db:
+  type: ${DB_TYPE}
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  user: ${DB_USER}
+  password: ${DB_PASSWORD}
+  name: ${DB_NAME}

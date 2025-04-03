@@ -1,0 +1,208 @@
+1. POST: /interviews/start (FE->Irelia)
+Request:
+{
+    "field": "AI Engineering",
+    "position": "AI Engineer Fresher",
+    "language": "English",
+    "models": "en-GB-RyanNeural",
+    "speed": 0,
+    "level": "Easy",
+    "maxQuestions": 10,
+    "skipIntro": false,
+    "coding": false
+}
+Response:
+{
+    "interviewId": "644946df-fea4-44ca-afe4-0ee5bada90d3",
+    "firstQuestion": {
+        "index": 1,
+        "content": "Could you introduce yourself?",
+        "audio": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy", 
+        "lipsync": { 
+            "metadata": { 
+                "soundFile": "/app/audio/output_{timestamp}.wav", 
+                "duration": 1.52, 
+            }, 
+            "mouthCues": [ 
+                { "start": 0.00, "end": 1.02, "value": "X" },
+                { "start": 1.02, "end": 1.52, "value": "B" },
+            ] 
+        }
+    }
+}
+
+2. POST: /interviews/{interviewId}/answer (FE->Irelia)
+Request:
+{
+    "questionId": 3,
+    "answer": "I love the project that I built an AI chatbot for my school."
+}
+Response:
+{
+    "questionId": 4,
+    "content": "What are your experience with AI?",
+    "audio": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy", 
+    "lipsync": { 
+        "metadata": { 
+            "soundFile": "/app/audio/output_{timestamp}.wav", 
+            "duration": 1.52, 
+        }, 
+        "mouthCues": [ 
+            { "start": 0.00, "end": 1.02, "value": "X" },
+            { "start": 1.02, "end": 1.52, "value": "B" },
+        ] 
+    }
+}
+
+3. POST: /interviews/{interviewId}/next-question (Irelia->Darius)
+Request:
+{
+    "context": {
+        "field": "AI Engineering",
+        "position": "AI Engineer Intern",
+        "language": "English",
+        "level": "Easy",
+        "maxQuestions": 10,
+        "coding": false
+    },
+    "submissions": [
+        {
+            "question": "Could you introduce yourself?",
+            "answer": "I'm John Doe, a fourth-year student in University of Science." 
+        },
+        {
+            "question": "What are your strengths and weaknesses?",
+            "answer": "I'm good at coding and problem-solving, but I'm not good at communication."
+        },
+        {
+            "question": "What are your favourite projects?",
+            "answer": "I love the project that I built an AI chatbot for my school."
+        },
+        {
+            "question": "What are your experience with AI?"
+        }
+    ],
+    "remainingQuestions": 6
+}
+Response:
+{
+    "question": [
+      "What is the difference between AI and Machine Learning?",
+      "Could you explain the difference between supervised and unsupervised learning?"
+    ]
+}
+
+4. POST: /interviews/{interviewId}/lip-sync (Irelia->Karma)
+Request:
+{
+    "questionId": 3,
+    "content": "What are your favourite projects?",
+    "voiceId": "en-GB-RyanNeural",
+    "speed": -5
+}
+Response:
+{
+    "audio": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy",
+    "lipsync": { 
+        "metadata": { 
+            "soundFile": "/app/audio/output_{timestamp}.wav", 
+            "duration": 1.52, 
+        }, 
+        "mouthCues": [ 
+            { "start": 0.00, "end": 1.02, "value": "X" },
+            { "start": 1.02, "end": 1.52, "value": "B" },
+        ] 
+    }
+}
+
+5. POST: /interviews/{interviewId}/submit (FE->Irelia)
+Request:
+{
+    "history": [
+        {
+            "question": "Could you introduce yourself?",
+            "answer": "I'm John Doe, a fourth-year student in University of Science." 
+        },
+        {
+            "question": "What are your strengths and weaknesses?",
+            "answer": "I'm good at coding and problem-solving, but I'm not good at communication."
+        },
+        {
+            "question": "What are your favourite projects?",
+            "answer": "I love the project that I built an AI chatbot for my school."
+        },
+        ...
+    ],
+    "recordVideo": {mp4, avi, mkv}
+}
+Response:
+{
+    "status": "201 Created || 400 Bad Request"
+}
+
+6. GET: /interviews/history/{interviewId} (FE->Irelia)
+Response:
+{
+    "submissions": [
+        {
+            "question": "Could you introduce yourself?",
+            "answer": "I'm John Doe, a fourth-year student in University of Science.",
+            "comment": "",
+            "status": "Full"
+        },
+        {
+            "question": "What are your strengths and weaknesses?",
+            "answer": "I'm good at coding and problem-solving, but I'm not good at communication.",
+            "comment": "",
+            "status": "Full"
+        },
+        {
+            "question": "What are your favourite projects?",
+            "answer": "I love the project that I built an AI chatbot for my school.",
+            "comment": "Need detail about project purposes, technologies, frameworks.",
+            "status": "Partial"
+        },
+        ...
+    ],
+    "recordVideo": {mp4, avi, mkv},
+    "totalScore": {
+        "full": 5,
+        "partial": 4,
+        "none": 1,
+    },
+    "areasOfImprovement": "English pronounciation, AI algorithms, ...",
+    "finalComment": "In general, you did a great job. However, ..."
+}
+
+7. GET: /interviews/history?page=1 (FE->Irelia)
+Response:
+{
+    "page": 1,
+    "perPage": 10,
+    "totalPages": 1,
+    "result": [
+        {
+            "interviewId": "random-id",
+            "title": "AI Engineer Intern",
+            "createdAt": {timestamp},
+            "totalScore": {
+                "full": 5,
+                "partial": 4,
+                "none": 1,
+            },
+            "thumbnail": {png},
+        },
+        {
+            "interviewId": "another-id",
+            "title": "AI Engineer Fresher",
+            "createdAt": {timestamp},
+            "totalScore": {
+                "full": 5,
+                "partial": 3,
+                "none": 2,
+            },
+            "thumbnail": {png},
+        },
+        ...
+    ]
+}
