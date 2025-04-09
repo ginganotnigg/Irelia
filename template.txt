@@ -34,12 +34,19 @@ Response:
 2. POST: /interviews/{interviewId}/answer (FE->Irelia)
 Request:
 {
-    "questionId": 3,
-    "answer": "I love the project that I built an AI chatbot for my school."
+    "questionIndex": 3,
+    "answer": "I love the project that I built an AI chatbot for my school.",
+    "recordProof": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy"
 }
 Response:
 {
-    "questionId": 4,
+    "status": "201 Created || 400 Bad Request"
+}
+
+3. GET: /interviews/{interviewId}/{question_index} (FE->Irelia)
+Response:
+{
+    "questionIndex": 4,
     "content": "What are your experience with AI?",
     "audio": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy", 
     "lipsync": { 
@@ -51,10 +58,11 @@ Response:
             { "start": 0.00, "end": 1.02, "value": "X" },
             { "start": 1.02, "end": 1.52, "value": "B" },
         ] 
-    }
+    },
+    "isLastQuestion": false
 }
 
-3. POST: /interviews/{interviewId}/next-question (Irelia->Darius)
+4. POST: /interviews/{interviewId}/next-question (Irelia->Darius)
 Request:
 {
     "context": {
@@ -92,10 +100,10 @@ Response:
     ]
 }
 
-4. POST: /interviews/{interviewId}/lip-sync (Irelia->Karma)
+5. POST: /interviews/{interviewId}/lip-sync (Irelia->Karma)
 Request:
 {
-    "questionId": 3,
+    "questionIndex": 3,
     "content": "What are your favourite projects?",
     "voiceId": "en-GB-RyanNeural",
     "speed": -5
@@ -115,66 +123,123 @@ Response:
     }
 }
 
-5. POST: /interviews/{interviewId}/submit (FE->Irelia)
+6. GET: /interviews/{interviewId}/submit (FE->Irelia)
+Response:
+{
+    "outro": {
+        "audio": "7uf//NkxH0hU+6aV09AALd+aGErDRA6qgiCLbbbaWkk25JJYIkk9YFTSMQiQTbK8i0WgJVWTIqqIIgRMO6oKDtDnDlGgfiUBbgvw1ienhPxYjnSYFfH4LUI0FcyaQnghzcnha1D2UPYTUHUE6BWQWsjEkmiCNlIUR7uwGwB6EDHcPI+xaJwPhiZF4c58cwc8wPG//NkxHo1xBqqX5hoA+SA4g4wmReMzJE2Lw9Bhy",
+        "lipsync": { 
+            "metadata": { 
+                "soundFile": "/app/audio/output_{timestamp}.wav", 
+                "duration": 1.52, 
+            }, 
+            "mouthCues": [ 
+                { "start": 0.00, "end": 1.02, "value": "X" },
+                { "start": 1.02, "end": 1.52, "value": "B" },
+            ] 
+        }
+    }
+}
+
+7. POST: /interviews/{interviewId}/score (Irelia->Darius&Morgana?)
 Request:
 {
-    "history": [
+    "submissions": [
         {
+            "index": 1,
             "question": "Could you introduce yourself?",
-            "answer": "I'm John Doe, a fourth-year student in University of Science." 
+            "answer": "I'm John Doe, a fourth-year student in University of Science."
         },
         {
+            "index": 2,
             "question": "What are your strengths and weaknesses?",
             "answer": "I'm good at coding and problem-solving, but I'm not good at communication."
         },
         {
+            "index": 3,
             "question": "What are your favourite projects?",
             "answer": "I love the project that I built an AI chatbot for my school."
         },
         ...
-    ],
-    "recordVideo": {mp4, avi, mkv}
+    ]
 }
 Response:
 {
-    "status": "201 Created || 400 Bad Request"
+    "result": [
+        {
+            "index": 1,
+            "comment": "Well done",
+            "score": "A"
+        },
+        {
+            "index": 2,
+            "comment": "",
+            "score": "A"
+        },
+        {
+            "index": 3,
+            "comment": "Need detail about project purposes, technologies, frameworks.",
+            "score": "C"
+        },
+        ...
+    ],
+    "totalScore": {
+        "A": 5,
+        "B": 3,
+        "C": 1,
+        "D": 0,
+        "F": 1,
+    },
+    "positiveFeedback": 
+        "
+            - English pronunciation: ...
+            - AI algorithms: ...
+        ",
+    "actionableFeedback": 
+        "
+            - Confidence: ...
+            - Coding skills: ...
+        ",
+    "finalComment": "In general, you did a great job. However, ..."
 }
 
-6. GET: /interviews/history/{interviewId} (FE->Irelia)
+8. GET: /interviews/history/{interviewId} (FE->Irelia)
 Response:
 {
     "submissions": [
         {
             "question": "Could you introduce yourself?",
             "answer": "I'm John Doe, a fourth-year student in University of Science.",
-            "comment": "",
-            "status": "Full"
+            "comment": "Well done",
+            "status": "A"
         },
         {
             "question": "What are your strengths and weaknesses?",
             "answer": "I'm good at coding and problem-solving, but I'm not good at communication.",
             "comment": "",
-            "status": "Full"
+            "status": "A"
         },
         {
             "question": "What are your favourite projects?",
             "answer": "I love the project that I built an AI chatbot for my school.",
             "comment": "Need detail about project purposes, technologies, frameworks.",
-            "status": "Partial"
+            "status": "C"
         },
         ...
     ],
-    "recordVideo": {mp4, avi, mkv},
     "totalScore": {
-        "full": 5,
-        "partial": 4,
-        "none": 1,
+        "A": 5,
+        "B": 3,
+        "C": 1,
+        "D": 0,
+        "F": 1,
     },
-    "areasOfImprovement": "English pronounciation, AI algorithms, ...",
+    "positiveFeedback": "English pronounciation (A), AI algorithms (A), ...",
+    "actionableFeedback": "Confidence (C), Coding skills (D), ..."
     "finalComment": "In general, you did a great job. However, ..."
 }
 
-7. GET: /interviews/history?page=1 (FE->Irelia)
+9. GET: /interviews/history?page=1 (FE->Irelia)
 Response:
 {
     "page": 1,
@@ -190,7 +255,6 @@ Response:
                 "partial": 4,
                 "none": 1,
             },
-            "thumbnail": {png},
         },
         {
             "interviewId": "another-id",
@@ -201,7 +265,6 @@ Response:
                 "partial": 3,
                 "none": 2,
             },
-            "thumbnail": {png},
         },
         ...
     ]

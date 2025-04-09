@@ -26,9 +26,9 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
     query := `
         INSERT INTO interviews (
             id, field, position, language, voice_id, speed, level, coding, max_questions,
-            remaining_questions, total_score,
-            areas_of_improvement, final_comment, completed
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            remaining_questions, total_score, positive_feedback, actionable_feedback,
+            final_comment, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             field = VALUES(field),
             position = VALUES(position),
@@ -40,17 +40,18 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
             max_questions = VALUES(max_questions),
             remaining_questions = VALUES(remaining_questions),
             total_score = VALUES(total_score),
-            areas_of_improvement = VALUES(areas_of_improvement),
+            positive_feedback = VALUES(positive_feedback),
+            actionable_feedback = VALUES(actionable_feedback),
             final_comment = VALUES(final_comment),
-            completed = VALUES(completed),
+            status = VALUES(status),
             updated_at = CURRENT_TIMESTAMP
     `
 
     _, err = r.db.Exec(query,
         interview.Id, interview.Field, interview.Position, interview.Language, interview.VoiceId,
         interview.Speed, interview.Level, interview.Coding, interview.MaxQuestions, interview.RemainingQuestions,
-        totalScoreJSON, interview.AreasOfImprovement,
-        interview.FinalComment, interview.Completed,
+        totalScoreJSON, interview.PositiveFeedback, interview.ActionableFeedback,
+        interview.FinalComment, interview.Status,
     )
 
     if err != nil {
@@ -64,8 +65,8 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
 func (r *SQLInterviewRepository) GetInterview(id string) (*pb.Interview, error) {
     query := `
         SELECT id, field, position, language, voice_id, speed, level, max_questions,
-               remaining_questions, total_score,
-               areas_of_improvement, final_comment, completed, created_at, updated_at
+               remaining_questions, total_score, positive_feedback, actionable_feedback,
+               final_comment, status, created_at, updated_at
         FROM interviews
         WHERE id = ?
     `
@@ -77,8 +78,8 @@ func (r *SQLInterviewRepository) GetInterview(id string) (*pb.Interview, error) 
         &interview.Id, &interview.Field, &interview.Position, &interview.Language,
         &interview.VoiceId, &interview.Speed, &interview.Level, &interview.MaxQuestions,
         &interview.RemainingQuestions, &totalScoreJSON,
-        &interview.AreasOfImprovement, &interview.FinalComment,
-        &interview.Completed, &interview.CreatedAt, &interview.UpdatedAt,
+        &interview.PositiveFeedback, &interview.ActionableFeedback, &interview.FinalComment,
+        &interview.Status, &interview.CreatedAt, &interview.UpdatedAt,
     )
     if err == sql.ErrNoRows {
         return nil, sql.ErrNoRows
@@ -101,17 +102,19 @@ func (r *SQLInterviewRepository) SaveQuestion(question *pb.Question) error {
     }
 
     query := `
-        INSERT INTO questions (interview_id, question_index, content, audio, lipsync, answer, comment, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO questions (interview_id, question_index, content, audio, lipsync, answer, record_proof, comment, score, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             content = VALUES(content),
             audio = VALUES(audio),
             lipsync = VALUES(lipsync),
             answer = VALUES(answer),
+            record_proof = VALUES(record_proof),
             comment = VALUES(comment),
+            score = VALUES(score),
             status = VALUES(status)
     `
-    _, err = r.db.Exec(query, question.InterviewId, question.Index, question.Content, question.Audio, lipsyncJSON, question.Answer, question.Comment, question.Status)
+    _, err = r.db.Exec(query, question.InterviewId, question.Index, question.Content, question.Audio, lipsyncJSON, question.Answer, question.RecordProof, question.Comment, question.Score, question.Status)
     if err != nil {
         return fmt.Errorf("failed to save question: %v", err)
     }
@@ -122,7 +125,7 @@ func (r *SQLInterviewRepository) SaveQuestion(question *pb.Question) error {
 // GetQuestion retrieves a question by interview ID and question index
 func (r *SQLInterviewRepository) GetQuestion(interviewID string, questionIndex int32) (*pb.Question, error) {
     query := `
-        SELECT question_index, interview_id, content, audio, lipsync, answer, comment, status, created_at, updated_at
+        SELECT question_index, interview_id, content, audio, lipsync, answer, record_proof, comment, score, status, created_at, updated_at
         FROM questions
         WHERE interview_id = ? AND question_index = ?
     `
@@ -132,8 +135,8 @@ func (r *SQLInterviewRepository) GetQuestion(interviewID string, questionIndex i
     var lipsyncJSON []byte
     err := row.Scan(
         &question.Index, &question.InterviewId, &question.Content, &question.Audio,
-        &lipsyncJSON, &question.Answer, &question.Comment, &question.Status,
-        &question.CreatedAt, &question.UpdatedAt,
+        &lipsyncJSON, &question.Answer, &question.RecordProof, &question.Comment,
+        &question.Score, &question.Status, &question.CreatedAt, &question.UpdatedAt,
     )
     if err == sql.ErrNoRows {
         return nil, fmt.Errorf("question with index %d not found for interview ID %s", questionIndex, interviewID)
@@ -200,10 +203,10 @@ func (r *SQLInterviewRepository) GetTotalInterviewCount() (int32, error) {
 func (r *SQLInterviewRepository) SaveAnswer(interviewID string, answer *pb.AnswerResult) error {
     query := `
         UPDATE questions
-        SET answer = ?, record_proof = ?, comment = ?, status = ?
+        SET answer = ?, record_proof = ?, comment = ?, score = ?
         WHERE interview_id = ? AND question_index = ?
     `
-    _, err := r.db.Exec(query, answer.Answer, answer.RecordProof, answer.Comment, answer.Status, interviewID, answer.Index)
+    _, err := r.db.Exec(query, answer.Answer, answer.RecordProof, answer.Comment, answer.Score, interviewID, answer.Index)
     if err != nil {
         return fmt.Errorf("failed to save answer: %v", err)
     }
@@ -226,7 +229,7 @@ func (r *SQLInterviewRepository) GetQaPair(interviewID string) ([]*pb.QaPair, er
     qaPairs := make([]*pb.QaPair, 0)
     for rows.Next() {
         var answer pb.QaPair
-        err := rows.Scan(&answer.Content, &answer.Answer)
+        err := rows.Scan(&answer.Question, &answer.Answer)
         if err != nil {
             return nil, fmt.Errorf("failed to scan answer: %v", err)
         }
@@ -238,7 +241,7 @@ func (r *SQLInterviewRepository) GetQaPair(interviewID string) ([]*pb.QaPair, er
 // GetAnswers retrieves all answers for an interview
 func (r *SQLInterviewRepository) GetAnswers(interviewID string) ([]*pb.AnswerResult, error) {
     query := `
-        SELECT question_index, answer, record_proof, comment, status
+        SELECT question_index, content, answer, record_proof, comment, score, status
         FROM questions
         WHERE interview_id = ?
         ORDER BY question_index
@@ -252,7 +255,7 @@ func (r *SQLInterviewRepository) GetAnswers(interviewID string) ([]*pb.AnswerRes
     answers := make([]*pb.AnswerResult, 0)
     for rows.Next() {
         var answer pb.AnswerResult
-        err := rows.Scan(&answer.Index, &answer.Answer, &answer.RecordProof, &answer.Comment, &answer.Status)
+        err := rows.Scan(&answer.Index, &answer.Content, &answer.Answer, &answer.RecordProof, &answer.Comment, &answer.Score)
         if err != nil {
             return nil, fmt.Errorf("failed to scan answer: %v", err)
         }

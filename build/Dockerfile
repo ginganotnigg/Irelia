@@ -7,7 +7,10 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o server ./cmd
-EXPOSE 8080
+RUN go build -o server ./main
+RUN chmod +x server
+
+EXPOSE 3140
+EXPOSE 3141
 
 CMD ["./server", "-c", "./config/config.yaml"]

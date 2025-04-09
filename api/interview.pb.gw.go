@@ -101,48 +101,6 @@ func local_request_InterviewService_SubmitAnswer_0(ctx context.Context, marshale
 	return msg, metadata, err
 }
 
-func request_InterviewService_SubmitInterview_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq SubmitInterviewRequest
-		metadata runtime.ServerMetadata
-		err      error
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	val, ok := pathParams["interview_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
-	}
-	protoReq.InterviewId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
-	}
-	msg, err := client.SubmitInterview(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-}
-
-func local_request_InterviewService_SubmitInterview_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq SubmitInterviewRequest
-		metadata runtime.ServerMetadata
-		err      error
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	val, ok := pathParams["interview_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
-	}
-	protoReq.InterviewId, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
-	}
-	msg, err := server.SubmitInterview(ctx, &protoReq)
-	return msg, metadata, err
-}
-
 func request_InterviewService_GetInterview_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq GetInterviewRequest
@@ -180,6 +138,96 @@ func local_request_InterviewService_GetInterview_0(ctx context.Context, marshale
 	return msg, metadata, err
 }
 
+func request_InterviewService_SubmitInterview_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq SubmitInterviewRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	io.Copy(io.Discard, req.Body)
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	msg, err := client.SubmitInterview(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_InterviewService_SubmitInterview_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq SubmitInterviewRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	msg, err := server.SubmitInterview(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+func request_InterviewService_GetNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq QuestionRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	io.Copy(io.Discard, req.Body)
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	val, ok = pathParams["question_index"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "question_index")
+	}
+	protoReq.QuestionIndex, err = runtime.Int32(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "question_index", err)
+	}
+	msg, err := client.GetNextQuestion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_InterviewService_GetNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq QuestionRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	val, ok = pathParams["question_index"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "question_index")
+	}
+	protoReq.QuestionIndex, err = runtime.Int32(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "question_index", err)
+	}
+	msg, err := server.GetNextQuestion(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 var filter_InterviewService_GetInterviewHistory_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_InterviewService_GetInterviewHistory_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -213,7 +261,7 @@ func local_request_InterviewService_GetInterviewHistory_0(ctx context.Context, m
 	return msg, metadata, err
 }
 
-func request_InterviewService_GetNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_InterviewService_GenerateNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq NextQuestionRequest
 		metadata runtime.ServerMetadata
@@ -230,11 +278,11 @@ func request_InterviewService_GetNextQuestion_0(ctx context.Context, marshaler r
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
 	}
-	msg, err := client.GetNextQuestion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GenerateNextQuestion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
 
-func local_request_InterviewService_GetNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_InterviewService_GenerateNextQuestion_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq NextQuestionRequest
 		metadata runtime.ServerMetadata
@@ -251,7 +299,49 @@ func local_request_InterviewService_GetNextQuestion_0(ctx context.Context, marsh
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
 	}
-	msg, err := server.GetNextQuestion(ctx, &protoReq)
+	msg, err := server.GenerateNextQuestion(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+func request_InterviewService_ScoreInterview_0(ctx context.Context, marshaler runtime.Marshaler, client InterviewServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ScoreInterviewRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	msg, err := client.ScoreInterview(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_InterviewService_ScoreInterview_0(ctx context.Context, marshaler runtime.Marshaler, server InterviewServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ScoreInterviewRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["interview_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "interview_id")
+	}
+	protoReq.InterviewId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "interview_id", err)
+	}
+	msg, err := server.ScoreInterview(ctx, &protoReq)
 	return msg, metadata, err
 }
 
@@ -343,26 +433,6 @@ func RegisterInterviewServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 		}
 		forward_InterviewService_SubmitAnswer_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_InterviewService_SubmitInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/SubmitInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/submit"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_InterviewService_SubmitInterview_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		forward_InterviewService_SubmitInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-	})
 	mux.Handle(http.MethodGet, pattern_InterviewService_GetInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -382,6 +452,46 @@ func RegisterInterviewServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 			return
 		}
 		forward_InterviewService_GetInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_InterviewService_SubmitInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/SubmitInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/submit"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_InterviewService_SubmitInterview_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_SubmitInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_InterviewService_GetNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/GetNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/questions/{question_index}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_InterviewService_GetNextQuestion_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_GetNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_InterviewService_GetInterviewHistory_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -403,25 +513,45 @@ func RegisterInterviewServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 		}
 		forward_InterviewService_GetInterviewHistory_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_InterviewService_GetNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_InterviewService_GenerateNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/GetNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/next-question"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/GenerateNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/next-question"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_InterviewService_GetNextQuestion_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_InterviewService_GenerateNextQuestion_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_InterviewService_GetNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_InterviewService_GenerateNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_InterviewService_ScoreInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/interview.InterviewService/ScoreInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/score"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_InterviewService_ScoreInterview_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_ScoreInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodPost, pattern_InterviewService_GenerateLipSync_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -517,23 +647,6 @@ func RegisterInterviewServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 		}
 		forward_InterviewService_SubmitAnswer_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_InterviewService_SubmitInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/SubmitInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/submit"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_InterviewService_SubmitInterview_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		forward_InterviewService_SubmitInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-	})
 	mux.Handle(http.MethodGet, pattern_InterviewService_GetInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -550,6 +663,40 @@ func RegisterInterviewServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			return
 		}
 		forward_InterviewService_GetInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_InterviewService_SubmitInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/SubmitInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/submit"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_InterviewService_SubmitInterview_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_SubmitInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_InterviewService_GetNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/GetNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/questions/{question_index}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_InterviewService_GetNextQuestion_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_GetNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_InterviewService_GetInterviewHistory_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -568,22 +715,39 @@ func RegisterInterviewServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 		}
 		forward_InterviewService_GetInterviewHistory_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_InterviewService_GetNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_InterviewService_GenerateNextQuestion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/GetNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/next-question"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/GenerateNextQuestion", runtime.WithHTTPPathPattern("/interviews/{interview_id}/next-question"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_InterviewService_GetNextQuestion_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_InterviewService_GenerateNextQuestion_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_InterviewService_GetNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_InterviewService_GenerateNextQuestion_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_InterviewService_ScoreInterview_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/interview.InterviewService/ScoreInterview", runtime.WithHTTPPathPattern("/interviews/{interview_id}/score"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_InterviewService_ScoreInterview_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_InterviewService_ScoreInterview_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodPost, pattern_InterviewService_GenerateLipSync_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -606,21 +770,25 @@ func RegisterInterviewServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 }
 
 var (
-	pattern_InterviewService_StartInterview_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"interviews", "start"}, ""))
-	pattern_InterviewService_SubmitAnswer_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "answer"}, ""))
-	pattern_InterviewService_SubmitInterview_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "submit"}, ""))
-	pattern_InterviewService_GetInterview_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"interviews", "history", "interview_id"}, ""))
-	pattern_InterviewService_GetInterviewHistory_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"interviews", "history"}, ""))
-	pattern_InterviewService_GetNextQuestion_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "next-question"}, ""))
-	pattern_InterviewService_GenerateLipSync_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "lip-sync"}, ""))
+	pattern_InterviewService_StartInterview_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"interviews", "start"}, ""))
+	pattern_InterviewService_SubmitAnswer_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "answer"}, ""))
+	pattern_InterviewService_GetInterview_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"interviews", "history", "interview_id"}, ""))
+	pattern_InterviewService_SubmitInterview_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "submit"}, ""))
+	pattern_InterviewService_GetNextQuestion_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"interviews", "interview_id", "questions", "question_index"}, ""))
+	pattern_InterviewService_GetInterviewHistory_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"interviews", "history"}, ""))
+	pattern_InterviewService_GenerateNextQuestion_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "next-question"}, ""))
+	pattern_InterviewService_ScoreInterview_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "score"}, ""))
+	pattern_InterviewService_GenerateLipSync_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"interviews", "interview_id", "lip-sync"}, ""))
 )
 
 var (
-	forward_InterviewService_StartInterview_0      = runtime.ForwardResponseMessage
-	forward_InterviewService_SubmitAnswer_0        = runtime.ForwardResponseMessage
-	forward_InterviewService_SubmitInterview_0     = runtime.ForwardResponseMessage
-	forward_InterviewService_GetInterview_0        = runtime.ForwardResponseMessage
-	forward_InterviewService_GetInterviewHistory_0 = runtime.ForwardResponseMessage
-	forward_InterviewService_GetNextQuestion_0     = runtime.ForwardResponseMessage
-	forward_InterviewService_GenerateLipSync_0     = runtime.ForwardResponseMessage
+	forward_InterviewService_StartInterview_0       = runtime.ForwardResponseMessage
+	forward_InterviewService_SubmitAnswer_0         = runtime.ForwardResponseMessage
+	forward_InterviewService_GetInterview_0         = runtime.ForwardResponseMessage
+	forward_InterviewService_SubmitInterview_0      = runtime.ForwardResponseMessage
+	forward_InterviewService_GetNextQuestion_0      = runtime.ForwardResponseMessage
+	forward_InterviewService_GetInterviewHistory_0  = runtime.ForwardResponseMessage
+	forward_InterviewService_GenerateNextQuestion_0 = runtime.ForwardResponseMessage
+	forward_InterviewService_ScoreInterview_0       = runtime.ForwardResponseMessage
+	forward_InterviewService_GenerateLipSync_0      = runtime.ForwardResponseMessage
 )

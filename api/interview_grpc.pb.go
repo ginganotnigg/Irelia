@@ -19,13 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InterviewService_StartInterview_FullMethodName      = "/interview.InterviewService/StartInterview"
-	InterviewService_SubmitAnswer_FullMethodName        = "/interview.InterviewService/SubmitAnswer"
-	InterviewService_SubmitInterview_FullMethodName     = "/interview.InterviewService/SubmitInterview"
-	InterviewService_GetInterview_FullMethodName        = "/interview.InterviewService/GetInterview"
-	InterviewService_GetInterviewHistory_FullMethodName = "/interview.InterviewService/GetInterviewHistory"
-	InterviewService_GetNextQuestion_FullMethodName     = "/interview.InterviewService/GetNextQuestion"
-	InterviewService_GenerateLipSync_FullMethodName     = "/interview.InterviewService/GenerateLipSync"
+	InterviewService_StartInterview_FullMethodName       = "/interview.InterviewService/StartInterview"
+	InterviewService_SubmitAnswer_FullMethodName         = "/interview.InterviewService/SubmitAnswer"
+	InterviewService_GetInterview_FullMethodName         = "/interview.InterviewService/GetInterview"
+	InterviewService_SubmitInterview_FullMethodName      = "/interview.InterviewService/SubmitInterview"
+	InterviewService_GetNextQuestion_FullMethodName      = "/interview.InterviewService/GetNextQuestion"
+	InterviewService_GetInterviewHistory_FullMethodName  = "/interview.InterviewService/GetInterviewHistory"
+	InterviewService_GenerateNextQuestion_FullMethodName = "/interview.InterviewService/GenerateNextQuestion"
+	InterviewService_ScoreInterview_FullMethodName       = "/interview.InterviewService/ScoreInterview"
+	InterviewService_GenerateLipSync_FullMethodName      = "/interview.InterviewService/GenerateLipSync"
 )
 
 // InterviewServiceClient is the client API for InterviewService service.
@@ -35,11 +37,13 @@ type InterviewServiceClient interface {
 	// Frontend to Irelia
 	StartInterview(ctx context.Context, in *StartInterviewRequest, opts ...grpc.CallOption) (*StartInterviewResponse, error)
 	SubmitAnswer(ctx context.Context, in *SubmitAnswerRequest, opts ...grpc.CallOption) (*SubmitAnswerResponse, error)
-	SubmitInterview(ctx context.Context, in *SubmitInterviewRequest, opts ...grpc.CallOption) (*SubmitInterviewResponse, error)
 	GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error)
+	SubmitInterview(ctx context.Context, in *SubmitInterviewRequest, opts ...grpc.CallOption) (*SubmitInterviewResponse, error)
+	GetNextQuestion(ctx context.Context, in *QuestionRequest, opts ...grpc.CallOption) (*QuestionResponse, error)
 	GetInterviewHistory(ctx context.Context, in *GetInterviewHistoryRequest, opts ...grpc.CallOption) (*GetInterviewHistoryResponse, error)
 	// Irelia to Darius (Question Generator)
-	GetNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error)
+	GenerateNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error)
+	ScoreInterview(ctx context.Context, in *ScoreInterviewRequest, opts ...grpc.CallOption) (*ScoreInterviewResponse, error)
 	// Irelia to Karma (Lip Sync)
 	GenerateLipSync(ctx context.Context, in *LipSyncRequest, opts ...grpc.CallOption) (*LipSyncResponse, error)
 }
@@ -72,6 +76,16 @@ func (c *interviewServiceClient) SubmitAnswer(ctx context.Context, in *SubmitAns
 	return out, nil
 }
 
+func (c *interviewServiceClient) GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInterviewResponse)
+	err := c.cc.Invoke(ctx, InterviewService_GetInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *interviewServiceClient) SubmitInterview(ctx context.Context, in *SubmitInterviewRequest, opts ...grpc.CallOption) (*SubmitInterviewResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SubmitInterviewResponse)
@@ -82,10 +96,10 @@ func (c *interviewServiceClient) SubmitInterview(ctx context.Context, in *Submit
 	return out, nil
 }
 
-func (c *interviewServiceClient) GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error) {
+func (c *interviewServiceClient) GetNextQuestion(ctx context.Context, in *QuestionRequest, opts ...grpc.CallOption) (*QuestionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetInterviewResponse)
-	err := c.cc.Invoke(ctx, InterviewService_GetInterview_FullMethodName, in, out, cOpts...)
+	out := new(QuestionResponse)
+	err := c.cc.Invoke(ctx, InterviewService_GetNextQuestion_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +116,20 @@ func (c *interviewServiceClient) GetInterviewHistory(ctx context.Context, in *Ge
 	return out, nil
 }
 
-func (c *interviewServiceClient) GetNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error) {
+func (c *interviewServiceClient) GenerateNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NextQuestionResponse)
-	err := c.cc.Invoke(ctx, InterviewService_GetNextQuestion_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, InterviewService_GenerateNextQuestion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) ScoreInterview(ctx context.Context, in *ScoreInterviewRequest, opts ...grpc.CallOption) (*ScoreInterviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScoreInterviewResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ScoreInterview_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,11 +153,13 @@ type InterviewServiceServer interface {
 	// Frontend to Irelia
 	StartInterview(context.Context, *StartInterviewRequest) (*StartInterviewResponse, error)
 	SubmitAnswer(context.Context, *SubmitAnswerRequest) (*SubmitAnswerResponse, error)
-	SubmitInterview(context.Context, *SubmitInterviewRequest) (*SubmitInterviewResponse, error)
 	GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error)
+	SubmitInterview(context.Context, *SubmitInterviewRequest) (*SubmitInterviewResponse, error)
+	GetNextQuestion(context.Context, *QuestionRequest) (*QuestionResponse, error)
 	GetInterviewHistory(context.Context, *GetInterviewHistoryRequest) (*GetInterviewHistoryResponse, error)
 	// Irelia to Darius (Question Generator)
-	GetNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error)
+	GenerateNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error)
+	ScoreInterview(context.Context, *ScoreInterviewRequest) (*ScoreInterviewResponse, error)
 	// Irelia to Karma (Lip Sync)
 	GenerateLipSync(context.Context, *LipSyncRequest) (*LipSyncResponse, error)
 }
@@ -151,17 +177,23 @@ func (UnimplementedInterviewServiceServer) StartInterview(context.Context, *Star
 func (UnimplementedInterviewServiceServer) SubmitAnswer(context.Context, *SubmitAnswerRequest) (*SubmitAnswerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitAnswer not implemented")
 }
+func (UnimplementedInterviewServiceServer) GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInterview not implemented")
+}
 func (UnimplementedInterviewServiceServer) SubmitInterview(context.Context, *SubmitInterviewRequest) (*SubmitInterviewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitInterview not implemented")
 }
-func (UnimplementedInterviewServiceServer) GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInterview not implemented")
+func (UnimplementedInterviewServiceServer) GetNextQuestion(context.Context, *QuestionRequest) (*QuestionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNextQuestion not implemented")
 }
 func (UnimplementedInterviewServiceServer) GetInterviewHistory(context.Context, *GetInterviewHistoryRequest) (*GetInterviewHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetInterviewHistory not implemented")
 }
-func (UnimplementedInterviewServiceServer) GetNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetNextQuestion not implemented")
+func (UnimplementedInterviewServiceServer) GenerateNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateNextQuestion not implemented")
+}
+func (UnimplementedInterviewServiceServer) ScoreInterview(context.Context, *ScoreInterviewRequest) (*ScoreInterviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ScoreInterview not implemented")
 }
 func (UnimplementedInterviewServiceServer) GenerateLipSync(context.Context, *LipSyncRequest) (*LipSyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateLipSync not implemented")
@@ -222,6 +254,24 @@ func _InterviewService_SubmitAnswer_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InterviewService_GetInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).GetInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_GetInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).GetInterview(ctx, req.(*GetInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _InterviewService_SubmitInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SubmitInterviewRequest)
 	if err := dec(in); err != nil {
@@ -240,20 +290,20 @@ func _InterviewService_SubmitInterview_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _InterviewService_GetInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetInterviewRequest)
+func _InterviewService_GetNextQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuestionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InterviewServiceServer).GetInterview(ctx, in)
+		return srv.(InterviewServiceServer).GetNextQuestion(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: InterviewService_GetInterview_FullMethodName,
+		FullMethod: InterviewService_GetNextQuestion_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InterviewServiceServer).GetInterview(ctx, req.(*GetInterviewRequest))
+		return srv.(InterviewServiceServer).GetNextQuestion(ctx, req.(*QuestionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -276,20 +326,38 @@ func _InterviewService_GetInterviewHistory_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-func _InterviewService_GetNextQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _InterviewService_GenerateNextQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NextQuestionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InterviewServiceServer).GetNextQuestion(ctx, in)
+		return srv.(InterviewServiceServer).GenerateNextQuestion(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: InterviewService_GetNextQuestion_FullMethodName,
+		FullMethod: InterviewService_GenerateNextQuestion_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InterviewServiceServer).GetNextQuestion(ctx, req.(*NextQuestionRequest))
+		return srv.(InterviewServiceServer).GenerateNextQuestion(ctx, req.(*NextQuestionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_ScoreInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScoreInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ScoreInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ScoreInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ScoreInterview(ctx, req.(*ScoreInterviewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -328,20 +396,28 @@ var InterviewService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InterviewService_SubmitAnswer_Handler,
 		},
 		{
+			MethodName: "GetInterview",
+			Handler:    _InterviewService_GetInterview_Handler,
+		},
+		{
 			MethodName: "SubmitInterview",
 			Handler:    _InterviewService_SubmitInterview_Handler,
 		},
 		{
-			MethodName: "GetInterview",
-			Handler:    _InterviewService_GetInterview_Handler,
+			MethodName: "GetNextQuestion",
+			Handler:    _InterviewService_GetNextQuestion_Handler,
 		},
 		{
 			MethodName: "GetInterviewHistory",
 			Handler:    _InterviewService_GetInterviewHistory_Handler,
 		},
 		{
-			MethodName: "GetNextQuestion",
-			Handler:    _InterviewService_GetNextQuestion_Handler,
+			MethodName: "GenerateNextQuestion",
+			Handler:    _InterviewService_GenerateNextQuestion_Handler,
+		},
+		{
+			MethodName: "ScoreInterview",
+			Handler:    _InterviewService_ScoreInterview_Handler,
 		},
 		{
 			MethodName: "GenerateLipSync",

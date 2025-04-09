@@ -7,7 +7,8 @@ karma:
   url: "http://localhost:5000/api/lip-sync"
 
 darius:
-  url: "http://localhost:8080/v1/suggest_interview_question"
+  genurl: "http://35.198.194.208:30012/darius/v1/suggest_interview_question"
+  scrurl: "http://35.198.194.208:30012/darius/v1/score_interview"
 
 db:
   type: ${DB_TYPE}
@@ -16,3 +17,5 @@ db:
   user: ${DB_USER}
   password: ${DB_PASSWORD}
   name: ${DB_NAME}
+
+questions_to_prepare: 1
