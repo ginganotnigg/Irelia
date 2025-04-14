@@ -18,6 +18,11 @@ func NewSQLInterviewRepository(db *sql.DB) *SQLInterviewRepository {
 
 // SaveInterview saves or updates an interview
 func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
+    skillsJSON, err := json.Marshal(interview.Skills)
+    if err != nil {
+        return fmt.Errorf("failed to marshal skills: %v", err)
+    }
+
     totalScoreJSON, err := json.Marshal(interview.TotalScore)
     if err != nil {
         return fmt.Errorf("failed to marshal total score: %v", err)
@@ -25,18 +30,18 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
 
     query := `
         INSERT INTO interviews (
-            id, field, position, language, voice_id, speed, level, coding, max_questions,
+            id, position, experience, language, voice_id, speed, skills, skip_code, max_questions,
             remaining_questions, total_score, positive_feedback, actionable_feedback,
             final_comment, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
-            field = VALUES(field),
             position = VALUES(position),
+            experience = VALUES(experience),
             language = VALUES(language),
             voice_id = VALUES(voice_id),
             speed = VALUES(speed),
-            level = VALUES(level),
-            coding = VALUES(coding),
+            skills = VALUES(skills),
+            skip_code = VALUES(skip_code),
             max_questions = VALUES(max_questions),
             remaining_questions = VALUES(remaining_questions),
             total_score = VALUES(total_score),
@@ -48,8 +53,8 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
     `
 
     _, err = r.db.Exec(query,
-        interview.Id, interview.Field, interview.Position, interview.Language, interview.VoiceId,
-        interview.Speed, interview.Level, interview.Coding, interview.MaxQuestions, interview.RemainingQuestions,
+        interview.Id, interview.Position, interview.Experience, interview.Language, interview.VoiceId,
+        interview.Speed, skillsJSON, interview.SkipCode, interview.MaxQuestions, interview.RemainingQuestions,
         totalScoreJSON, interview.PositiveFeedback, interview.ActionableFeedback,
         interview.FinalComment, interview.Status,
     )
@@ -64,7 +69,7 @@ func (r *SQLInterviewRepository) SaveInterview(interview *pb.Interview) error {
 // GetInterview retrieves an interview by ID
 func (r *SQLInterviewRepository) GetInterview(id string) (*pb.Interview, error) {
     query := `
-        SELECT id, field, position, language, voice_id, speed, level, max_questions,
+        SELECT id, position, experience, language, voice_id, speed, skills, max_questions,
                remaining_questions, total_score, positive_feedback, actionable_feedback,
                final_comment, status, created_at, updated_at
         FROM interviews
@@ -73,10 +78,11 @@ func (r *SQLInterviewRepository) GetInterview(id string) (*pb.Interview, error) 
     row := r.db.QueryRow(query, id)
 
     var interview pb.Interview
+    var skillsJSON []byte
     var totalScoreJSON []byte
     err := row.Scan(
-        &interview.Id, &interview.Field, &interview.Position, &interview.Language,
-        &interview.VoiceId, &interview.Speed, &interview.Level, &interview.MaxQuestions,
+        &interview.Id, &interview.Position, &interview.Experience, &interview.Language,
+        &interview.VoiceId, &interview.Speed, &skillsJSON, &interview.MaxQuestions,
         &interview.RemainingQuestions, &totalScoreJSON,
         &interview.PositiveFeedback, &interview.ActionableFeedback, &interview.FinalComment,
         &interview.Status, &interview.CreatedAt, &interview.UpdatedAt,
@@ -87,6 +93,9 @@ func (r *SQLInterviewRepository) GetInterview(id string) (*pb.Interview, error) 
         return nil, fmt.Errorf("failed to get interview: %v", err)
     }
 
+    if err := json.Unmarshal(skillsJSON, &interview.Skills); err != nil {
+        return nil, fmt.Errorf("failed to unmarshal skills: %v", err)
+    }
     if err := json.Unmarshal(totalScoreJSON, &interview.TotalScore); err != nil {
         return nil, fmt.Errorf("failed to unmarshal total score: %v", err)
     }
@@ -154,7 +163,7 @@ func (r *SQLInterviewRepository) GetQuestion(interviewID string, questionIndex i
 // GetInterviewHistory retrieves a paginated list of interview summaries
 func (r *SQLInterviewRepository) GetInterviewHistory(offset, limit int32) ([]*pb.InterviewSummary, error) {
     query := `
-        SELECT id, field, position, total_score, created_at
+        SELECT id, position, experience, total_score, created_at
         FROM interviews
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -170,14 +179,14 @@ func (r *SQLInterviewRepository) GetInterviewHistory(offset, limit int32) ([]*pb
         var summary pb.InterviewSummary
         var totalScoreJSON []byte
         err := rows.Scan(
-            &summary.InterviewId, &summary.Field, &summary.Position,
+            &summary.InterviewId, &summary.Position, &summary.Experience,
             &totalScoreJSON, &summary.CreatedAt,
         )
         if err != nil {
             return nil, fmt.Errorf("failed to scan interview summary: %v", err)
         }
 
-        // Unmarshal the total score JSON into the TotalScore field
+        // Unmarshal the total score JSON into the TotalScore position
         if err := json.Unmarshal(totalScoreJSON, &summary.TotalScore); err != nil {
             return nil, fmt.Errorf("failed to unmarshal total score: %v", err)
         }
@@ -285,28 +294,31 @@ func (r *SQLInterviewRepository) QuestionExists(interviewID string, questionInde
 // GetInterviewContext retrieves the context of an interview by its ID
 func (r *SQLInterviewRepository) GetInterviewContext(interviewID string) (*pb.StartInterviewRequest, error) {
     query := `
-        SELECT field, position, language, level, max_questions, voice_id, speed, coding
+        SELECT position, experience, language, skills, max_questions, voice_id, speed, skip_code
         FROM interviews
         WHERE id = ?
     `
     var context pb.StartInterviewRequest
+    var skillsJSON []byte
     err := r.db.QueryRow(query, interviewID).Scan(
-        &context.Field,
         &context.Position,
+        &context.Experience,
         &context.Language,
-        &context.Level,
+        &skillsJSON,
         &context.MaxQuestions,
         &context.Models,
         &context.Speed,
-        &context.Coding,
+        &context.SkipCode,
     )
-
-    context.SkipIntro = false
 
     if err == sql.ErrNoRows {
         return nil, fmt.Errorf("interview with ID %s not found", interviewID)
     } else if err != nil {
         return nil, fmt.Errorf("failed to retrieve interview context: %v", err)
+    }
+
+    if err := json.Unmarshal(skillsJSON, &context.Skills); err != nil {
+        return nil, fmt.Errorf("failed to unmarshal skills: %v", err)
     }
 
     return &context, nil

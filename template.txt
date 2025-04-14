@@ -1,15 +1,20 @@
 1. POST: /interviews/start (FE->Irelia)
 Request:
 {
-    "field": "AI Engineering",
-    "position": "AI Engineer Fresher",
+    "position": "AI Engineering",
+    "experience": "AI Engineer Fresher",
     "language": "English",
     "models": "en-GB-RyanNeural",
     "speed": 0,
-    "level": "Easy",
+    "skills": [
+        "Machine Learning",
+        "Deep Learning",
+        "RAG",
+        "Prompting"
+    ],
     "maxQuestions": 10,
     "skipIntro": false,
-    "coding": false
+    "skipCode": false
 }
 Response:
 {
@@ -66,12 +71,17 @@ Response:
 Request:
 {
     "context": {
-        "field": "AI Engineering",
-        "position": "AI Engineer Intern",
+        "position": "AI Engineering",
+        "experience": "AI Engineer Intern",
         "language": "English",
-        "level": "Easy",
+        "skills": [
+            "Machine Learning",
+            "Deep Learning",
+            "RAG",
+            "Prompting"
+        ],
         "maxQuestions": 10,
-        "coding": false
+        "skipCode": false
     },
     "submissions": [
         {
@@ -183,6 +193,12 @@ Response:
         },
         ...
     ],
+    "skills": {
+        "Machine Learning": "B",
+        "Deep Learning": "C",
+        "RAG": "C",
+        "Prompting": "A"
+    },
     "totalScore": {
         "A": 5,
         "B": 3,

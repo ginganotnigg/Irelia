@@ -73,13 +73,13 @@ service InterviewService {
 // Database
 message Interview {
   string id = 1;
-  string field = 2;
-  string position = 3;
+  string position = 2;
+  string experience = 3;
   string language = 4;
   string voice_id = 5;
   int32 speed = 6;
-  string level = 7;
-  bool coding = 8;
+  map<string, string> skills = 7;
+  bool skip_code = 8;
   int32 max_questions = 9;
   int32 remaining_questions = 10;
   TotalScore total_score = 11;
@@ -108,15 +108,15 @@ message Question {
 
 // Frontend to Irelia
 message StartInterviewRequest {
-  string field = 1;
-  string position = 2;
+  string position = 1;
+  string experience = 2;
   string language = 3;
   string models = 4;
   int32 speed = 5;
-  string level = 6;
+  map<string, string> skills = 6;
   int32 max_questions = 7;
   bool skip_intro = 8;
-  bool coding = 9;
+  bool skip_code = 9;
 }
 
 message StartInterviewResponse {
@@ -176,9 +176,10 @@ message AnswerScore {
 message ScoreInterviewResponse {
   repeated AnswerScore submissions = 1;
   TotalScore total_score = 2;
-  string positive_feedback = 3;
-  string actionable_feedback = 4;
-  string final_comment = 5;
+  map<string, string> skills = 3;
+  string positive_feedback = 4;
+  string actionable_feedback = 5;
+  string final_comment = 6;
 }
 
 message GetInterviewRequest {
@@ -225,8 +226,8 @@ message GetInterviewHistoryResponse {
 
 message InterviewSummary {
   string interview_id = 1;
-  string field = 2;
-  string position = 3;
+  string position = 2;
+  string experience = 3;
   TotalScore total_score = 4;
   string created_at = 5;
 }
@@ -238,12 +239,12 @@ message QaPair {
 }
 
 message Context {
-  string field = 1;
-  string position = 2;
+  string position = 1;
+  string experience = 2;
   string language = 3;
-  string level = 4;
+  repeated string skills = 4;
   int32 max_questions = 5;
-  bool coding = 6;
+  bool skip_code = 6;
 }
 
 message NextQuestionRequest {

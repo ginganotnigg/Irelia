@@ -38,21 +38,40 @@ func NewIreliaService(dariusClient sv.DariusClient, karmaClient sv.KarmaClient, 
 	}
 }
 
-// Store the field-specific questions in a slice
-func (s *IreliaService) generateFieldSpecificQuestions(field string) []string {
-	return []string{
-		fmt.Sprintf("What are your favourite projects in %s?", field),
-		fmt.Sprintf("What are your experiences with %s?", field),
-		fmt.Sprintf("What are the biggest challenges facing professionals in %s today?", field),
-		fmt.Sprintf("How did you get started in %s?", field),
-		fmt.Sprintf("What do you find most rewarding about working in %s?", field),
-		fmt.Sprintf("What are some emerging trends in %s that excite you?", field),
-		fmt.Sprintf("What are some common misconceptions about %s?", field),
-		fmt.Sprintf("What kind of professional development have you pursued in %s?", field),
-		fmt.Sprintf("What advice would you give to someone just starting out in %s?", field),
-		fmt.Sprintf("What are your career goals in %s?", field),
-		fmt.Sprintf("What are some of the most important skills for success in %s?", field),
+func (s *IreliaService) generateIntroQuestion() string {
+	questions := []string{
+		"Please provide a brief overview of your professional background and key qualifications.",
+		"Reflecting on your professional journey, what is one area you are actively working to develop and why?",
+		"What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
+
 	}
+
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(questions))
+
+	return questions[randomIndex]
+}
+
+// Store the position-specific questions in a slice
+func (s *IreliaService) generatePositionSpecificQuestions(position string) string {
+	questions := []string{
+		fmt.Sprintf("Could you describe some of your most engaging projects within %s?", position),
+        fmt.Sprintf("What relevant experiences do you possess in the field of %s?", position),
+		fmt.Sprintf("In your opinion, what are the primary challenges currently facing professionals in %s?", position),
+        fmt.Sprintf("Could you share your journey into the field of %s?", position),
+        fmt.Sprintf("What aspects of working within %s do you find particularly fulfilling?", position),
+        fmt.Sprintf("What emerging trends within %s are you most enthusiastic about and why?", position),
+        fmt.Sprintf("What are some prevalent misconceptions surrounding the profession of %s?", position),
+        fmt.Sprintf("Can you elaborate on any professional development initiatives you've undertaken within %s?", position),
+        fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
+        fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
+        fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
+	}
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(questions))
+
+	return questions[randomIndex]
 }
 
 // Generate a unique interview ID
@@ -97,18 +116,23 @@ func (s *IreliaService) generateNextQuestion(interviewID string, submissions []*
 	}
 
 	// Provide default values for empty fields in the context
-	if interviewContext.Field == "" {
-		interviewContext.Field = "General"
-	}
 	if interviewContext.Position == "" {
 		interviewContext.Position = "General"
+	}
+	if interviewContext.Experience == "" {
+		interviewContext.Experience = "General"
 	}
 	if interviewContext.Language == "" {
 		interviewContext.Language = "English"
 	}
-	if interviewContext.Level == "" {
-		interviewContext.Level = "Intermediate"
+	if len(interviewContext.Skills) == 0 {
+		interviewContext.Skills = map[string]string{"English skills": ""}
 	}
+
+	skills := make([]string, 0, len(interviewContext.Skills))
+    for skill := range interviewContext.Skills {
+        skills = append(skills, skill)
+    }
 
 	// Prepare the Darius request
 	dariusReq := &pb.NextQuestionRequest{
@@ -116,12 +140,12 @@ func (s *IreliaService) generateNextQuestion(interviewID string, submissions []*
 		Submissions:        submissions,
 		RemainingQuestions: remainingQuestions,
 		Context: &pb.Context{
-			Field:        interviewContext.Field,
 			Position:     interviewContext.Position,
+			Experience:   interviewContext.Experience,
 			Language:     interviewContext.Language,
-			Level:        interviewContext.Level,
+			Skills:       skills,
 			MaxQuestions: interviewContext.MaxQuestions,
-			Coding:       interviewContext.Coding,
+			SkipCode:     interviewContext.SkipCode,
 		},
 	}
 
@@ -177,7 +201,7 @@ func substringAfterLastDotOrDash(s string) string {
 		}
 		return s[lastDash+1:]
 	} else {
-		return "" // Neither '.' nor '-' found, or they are at the same position (unlikely)
+		return "" // Neither '.' nor '-' found, or they are at the same experience (unlikely)
 	}
 }
 
@@ -277,17 +301,17 @@ func (s *IreliaService) asyncPrepareQuestion(interviewID string, nextQuestionID 
 		return
 	}
 
-    if nextQuestion != nil {
-        // Prepare lip-sync data for the next question
-        if err := s.prepareLipSync(interviewID, nextQuestion, interview.VoiceId, interview.Speed, false); err != nil {
-            s.logger.Error("Failed to prepare lip sync for the next question", zap.Error(err))
-        }
-    }
+	if nextQuestion != nil {
+		// Prepare lip-sync data for the next question
+		if err := s.prepareLipSync(interviewID, nextQuestion, interview.VoiceId, interview.Speed, false); err != nil {
+			s.logger.Error("Failed to prepare lip sync for the next question", zap.Error(err))
+		}
+	}
 }
 
 // StartInterview handles the creation of a new interview
 func (s *IreliaService) StartInterview(ctx context.Context, req *pb.StartInterviewRequest) (*pb.StartInterviewResponse, error) {
-	s.logger.Info("Starting new interview", zap.String("position", req.Position))
+	s.logger.Info("Starting new interview", zap.String("experience", req.Experience))
 
 	// Generate a unique interview ID
 	interviewID, err := s.generateInterviewId()
@@ -295,18 +319,23 @@ func (s *IreliaService) StartInterview(ctx context.Context, req *pb.StartIntervi
 		return nil, err
 	}
 
+	skills := make(map[string]string)
+    for _, skill := range req.Skills {
+        skills[skill] = ""
+    }
+
 	// Create and save the interview
 	interview := &pb.Interview{
 		Id:                 interviewID,
-		Field:              req.Field,
 		Position:           req.Position,
+		Experience:         req.Experience,
+		Skills:             skills,
 		Language:           req.Language,
 		VoiceId:            req.Models,
 		Speed:              req.Speed,
-		Level:              req.Level,
 		MaxQuestions:       req.MaxQuestions,
 		RemainingQuestions: req.MaxQuestions,
-		Coding:             req.Coding,
+		SkipCode:           req.SkipCode,
 		Status:             "InProgress",
 	}
 	if err := s.interviewRepo.SaveInterview(interview); err != nil {
@@ -316,20 +345,13 @@ func (s *IreliaService) StartInterview(ctx context.Context, req *pb.StartIntervi
 
 	// Prepare questions
 	questions := []string{}
+	introQuestion := s.generateIntroQuestion()
 	if !req.SkipIntro {
-		questions = append(questions, "Could you introduce yourself?", "What are your strengths and weaknesses?")
+		questions = append(questions, introQuestion)
 	}
 
-	// Select 2 random questions from the field-specific list
-	fieldQuestions := s.generateFieldSpecificQuestions(req.Field)
-	rand.Seed(time.Now().UnixNano())
-	indices := rand.Perm(len(fieldQuestions))[:2]
-	if indices[0] > indices[1] {
-		temp := indices[0]
-		indices[0] = indices[1]
-		indices[1] = temp
-	}
-	questions = append(questions, fieldQuestions[indices[0]], fieldQuestions[indices[1]])
+	fieldQuestion := s.generatePositionSpecificQuestions(req.Position)
+	questions = append(questions, fieldQuestion)
 
 	if err := s.saveQuestions(interviewID, questions); err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -530,6 +552,9 @@ func (s *IreliaService) SubmitInterview(ctx context.Context, req *pb.SubmitInter
 		}
 
 		// Update the interview with feedback and total score
+		for skill, score := range dariusResp.Skills {
+			interview.Skills[skill] = score
+		}
 		interview.TotalScore = dariusResp.TotalScore
 		interview.PositiveFeedback = dariusResp.PositiveFeedback
 		interview.ActionableFeedback = dariusResp.ActionableFeedback
@@ -605,8 +630,8 @@ func (s *IreliaService) GetInterviewHistory(ctx context.Context, req *pb.GetInte
 	for _, row := range rows {
 		history = append(history, &pb.InterviewSummary{
 			InterviewId: row.InterviewId,
-			Field:       row.Field,
 			Position:    row.Position,
+			Experience:  row.Experience,
 			TotalScore:  row.TotalScore,
 			CreatedAt:   row.CreatedAt,
 		})
@@ -640,12 +665,12 @@ func (s *IreliaService) callDariusForGenerate(ctx context.Context, req *pb.NextQ
 
 	payload := map[string]interface{}{
 		"context": map[string]interface{}{
-			"field":        req.Context.Field,
 			"position":     req.Context.Position,
+			"experience":   req.Context.Experience,
 			"language":     req.Context.Language,
-			"level":        req.Context.Level,
+			"skills":       req.Context.Skills,
 			"maxQuestions": req.Context.MaxQuestions,
-			"coding":       req.Context.Coding,
+			"skipCode":     req.Context.SkipCode,
 		},
 		"submissions":        submissions,
 		"remainingQuestions": req.RemainingQuestions,
@@ -659,15 +684,15 @@ func (s *IreliaService) callDariusForScore(ctx context.Context, req *pb.ScoreInt
 	submissions := make([]map[string]interface{}, len(req.Submissions))
 	for i, submission := range req.Submissions {
 		submissions[i] = map[string]interface{}{
-			"index":        int32(i + 1),
-			"question":     submission.Question,
-			"answer":       submission.Answer,
+			"index":       int32(i + 1),
+			"question":    submission.Question,
+			"answer":      submission.Answer,
 			"recordProof": "",
 		}
 	}
 
 	payload := map[string]interface{}{
-		"submissions":  submissions,
+		"submissions": submissions,
 	}
 	return s.dariusClient.CallDariusForScore(ctx, payload)
 }
