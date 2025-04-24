@@ -12,29 +12,26 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	pb "irelia/api"
-	repo "irelia/internal/repo"
 )
 
 // DariusService handles communication with the Darius service
 type DariusService struct {
 	dariusClient  DariusClient
-	interviewRepo repo.SQLInterviewRepository
 	logger        *zap.Logger
 }
 
 // NewDariusService creates a new DariusService instance
-func NewDariusService(dariusClient DariusClient, repo repo.SQLInterviewRepository, logger *zap.Logger) *DariusService {
+func NewDariusService(dariusClient DariusClient, logger *zap.Logger) *DariusService {
 	return &DariusService{
 		dariusClient:  dariusClient,
-		interviewRepo: repo,
 		logger:        logger,
 	}
 }
 
 // DariusClient defines the interface for the Darius service client
 type DariusClient interface {
-	CallDariusForGenerate(ctx context.Context, payload map[string]interface{}) (*pb.NextQuestionResponse, error)
-	CallDariusForScore(ctx context.Context, payload map[string]interface{}) (*pb.ScoreInterviewResponse, error)
+	Generate(ctx context.Context, payload map[string]interface{}) (*pb.NextQuestionResponse, error)
+	Score(ctx context.Context, payload map[string]interface{}) (*pb.ScoreInterviewResponse, error)
 }
 
 // DariusHTTPClient implements the DariusClient interface using HTTP
@@ -50,7 +47,7 @@ func NewDariusHTTPClient() *DariusHTTPClient {
 }
 
 // CallDariusForGenerate sends a REST API request to the Darius service to generate questions
-func (d *DariusHTTPClient) CallDariusForGenerate(ctx context.Context, payload map[string]interface{}) (*pb.NextQuestionResponse, error) {
+func (d *DariusHTTPClient) Generate(ctx context.Context, payload map[string]interface{}) (*pb.NextQuestionResponse, error) {
 	dariusURL := viper.GetString("darius.genurl")
 
 	payloadBytes, err := json.Marshal(payload)
@@ -92,7 +89,7 @@ func (d *DariusHTTPClient) CallDariusForGenerate(ctx context.Context, payload ma
 }
 
 // CallDariusForScore sends a REST API request to the Darius service to score answers
-func (d *DariusHTTPClient) CallDariusForScore(ctx context.Context, payload map[string]interface{}) (*pb.ScoreInterviewResponse, error) {
+func (d *DariusHTTPClient) Score(ctx context.Context, payload map[string]interface{}) (*pb.ScoreInterviewResponse, error) {
 	dariusURL := viper.GetString("darius.scrurl")
 
 	payloadBytes, err := json.Marshal(payload)

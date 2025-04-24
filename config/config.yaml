@@ -4,18 +4,31 @@ server:
   gwport: 3141
 
 karma:
-  url: "http://35.198.194.208:30012/karma/lip-sync"
+  url: "http://localhost:5000/api/lip-sync"
 
 darius:
-  genurl: "http://35.198.194.208:30012/darius/v1/suggest_interview_question"
-  scrurl: "http://35.198.194.208:30012/darius/v1/score_interview"
+  genurl: "https://skillsharp-api.icu/darius/v1/suggest_interview_question"
+  scrurl: "https://skillsharp-api.icu/darius/v1/score_interview"
 
 db:
-  type: ${DB_TYPE}
+  auth_method: ${DB_AUTH_METHOD}
   host: ${DB_HOST}
   port: ${DB_PORT}
   user: ${DB_USER}
   password: ${DB_PASSWORD}
   name: ${DB_NAME}
+  aws_region: ${DB_AWS_REGION}
+  debug: false
+  tracing_enabled: false
+  max_idle_conns: 5
+  max_open_conns: 5
+  conn_max_life_time: 86400
+  conn_max_idle_time: 3600
+
+logger:
+  level: DEBUG
+  pretty: true
 
 questions_to_prepare: 1
+
+context_qa_length: 5

@@ -1,49 +1,69 @@
 package cmd
 
 import (
+	"context"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
-	//"google.golang.org/grpc/credentials/insecure"
 	api "irelia/api"
-	"irelia/internal/handler"
+	feat "irelia/internal/features"
 	repo "irelia/internal/repo"
-	dbcf "irelia/internal/database"
-	"irelia/internal/service"
+	"irelia/pkg/database/client"
+	"irelia/pkg/ent"
+	"irelia/pkg/ent/migrate"
 )
 
+func customMetadataAnnotator(ctx context.Context, req *http.Request) metadata.MD {
+	md := metadata.MD{}
+
+	for name, values := range req.Header {
+		lowerName := strings.ToLower(name)
+		if strings.HasPrefix(lowerName, "x-") {
+			md.Append(lowerName, values...)
+		}
+	}
+
+	return md
+}
+
 func startGRPC(logger *zap.Logger) {
-	dbcf.InitDB(logger)
-    db := dbcf.DB
-    defer db.Close()
+	config := client.ReadConfig()
 
-	// Create repository
-	repo := repo.NewSQLInterviewRepository(db)
+    drv, err := client.Open("mysql_irelia", config)
+    if err != nil {
+        logger.Fatal("Failed to initialize Ent driver", zap.Error(err))
+    }
+	entClient := ent.NewClient(ent.Driver(drv))
+	defer func() {
+		if err := entClient.Close(); err != nil {
+			logger.Fatal("can not close ent client", zap.Error(err))
+		}
+	}()
 
-	// Set up gRPC connections to Darius and Karma
-	// dariusConn, err := grpc.Dial(viper.GetString("darius.url"), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	// if err != nil {
-	//     logger.Fatal("Failed to connect to Darius service", zap.Error(err))
-	// }
-	// defer dariusConn.Close()
+	if err = entClient.Schema.Create(context.Background(), migrate.WithDropIndex(true)); err != nil {
+		logger.Fatal("can not init my database", zap.Error(err))
+	}
+
+    repository := repo.New(entClient)
 
 	// Initialize clients
-	dariusClient := service.NewDariusHTTPClient()
-	karmaClient := service.NewKarmaHTTPClient()
 
 	// Create a combined service implementation that delegates to appropriate implementations
-	ireliaService := handler.NewIreliaService(dariusClient, karmaClient, *repo, logger)
+	irelia := feat.New(repository, logger)
 
 	// Start gRPC server
 	grpcServer := grpc.NewServer()
-	api.RegisterInterviewServiceServer(grpcServer, ireliaService)
+	api.RegisterIreliaServer(grpcServer, irelia)
 	reflection.Register(grpcServer)
 
 	grpcListener, err := net.Listen("tcp", viper.GetString("server.host")+":"+viper.GetString("server.port"))

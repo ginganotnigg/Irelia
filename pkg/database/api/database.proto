@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package greyhole.database;
+
+option go_package = "ekko/pkg/database/api;database";
+
+message Database {
+  string host = 1;
+  uint32 port = 2;
+  string name = 3; // database name
+
+  bool tracing_enabled = 4;
+  bool debug = 5;
+
+  uint32 max_idle_conns = 6;
+  uint32 max_open_conns = 7;
+  uint32 conn_max_life_time = 8; // minutes
+  uint32 conn_max_idle_time = 9; // minutes
+
+  AuthMethod auth_method = 10;
+
+  // AUTH_METHOD_USERNAME_PASSWORD
+  string username = 11;
+  string password = 12;
+
+  // AUTH_METHOD_AWS_IAM
+  string aws_region = 13;
+
+  enum AuthMethod {
+    AUTH_METHOD_UNSPECIFIED = 0;
+    AUTH_METHOD_NONE = 1;
+    AUTH_METHOD_USERNAME_PASSWORD = 2;
+    AUTH_METHOD_AWS_IAM = 3;
+  }
+}

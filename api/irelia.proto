@@ -1,0 +1,358 @@
+syntax = "proto3";
+
+package irelia;
+
+option go_package = "irelia/api;irelia";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+service Irelia {
+  // Frontend to Irelia
+  rpc StartInterview(StartInterviewRequest) returns (StartInterviewResponse) {
+    option (google.api.http) = {
+      post: "/interviews/start"
+      body: "*"
+    };
+  }
+
+  rpc GetNextQuestion(QuestionRequest) returns (QuestionResponse) {
+    option (google.api.http) = {
+      get: "/interviews/{interview_id}/questions/{question_index}"
+    };
+  }
+  
+  rpc SubmitAnswer(SubmitAnswerRequest) returns (SubmitAnswerResponse) {
+    option (google.api.http) = {
+      post: "/interviews/{interview_id}/answer"
+      body: "*"
+    };
+  }
+  
+  rpc SubmitInterview(SubmitInterviewRequest) returns (SubmitInterviewResponse) {
+    option (google.api.http) = {
+      get: "/interviews/{interview_id}/submit"
+    };
+  }
+  
+  rpc GetInterviewHistory(GetInterviewHistoryRequest) returns (GetInterviewHistoryResponse) {
+    option (google.api.http) = {
+      get: "/interviews/history"
+    };
+  }
+
+  rpc GetInterview(GetInterviewRequest) returns (GetInterviewResponse) {
+    option (google.api.http) = {
+      get: "/interviews/history/{interview_id}"
+    };
+  }
+
+  rpc FavoriteInterview(FavoriteInterviewRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/interviews/{interview_id}/favorite"
+      body: "*"
+    };
+  }
+  
+  // Irelia to Darius (Question Generator)
+  rpc GenerateNextQuestion(NextQuestionRequest) returns (NextQuestionResponse) {
+    option (google.api.http) = {
+      post: "/interviews/{interview_id}/next-question"
+      body: "*"
+    };
+  }
+
+  rpc ScoreInterview(ScoreInterviewRequest) returns (ScoreInterviewResponse) {
+    option (google.api.http) = {
+      post: "/interviews/{interview_id}/score"
+      body: "*"
+    };
+  }
+  
+  // Irelia to Karma (Lip Sync)
+  rpc GenerateLipSync(LipSyncRequest) returns (LipSyncResponse) {
+    option (google.api.http) = {
+      post: "/interviews/{interview_id}/lip-sync"
+      body: "*"
+    };
+  }
+}
+
+
+//======================================== ENUM =======================================
+enum InterviewStatus {
+  INTERVIEW_STATUS_UNKNOWN = 0;
+  INTERVIEW_STATUS_IN_PROGRESS = 1;
+  INTERVIEW_STATUS_PENDING = 2;
+  INTERVIEW_STATUS_FAILED = 3;
+  INTERVIEW_STATUS_COMPLETED = 4;
+}
+
+enum QuestionStatus {
+  QUESTION_STATUS_UNKNOWN = 0;
+  QUESTION_STATUS_NEW = 1;
+  QUESTION_STATUS_ANSWERED = 2;
+  QUESTION_STATUS_SKIPPED = 3;
+  QUESTION_STATUS_FAILED = 4;
+  QUESTION_STATUS_RATED = 5;
+}
+
+enum SortType {
+  SORT_TYPE_UNKNOWN = 0;
+  SORT_TYPE_ASC = 1;
+  SORT_TYPE_DESC = 2;
+}
+
+enum BulbasaurRole {
+  ROLE_UNKNOWN = 0;
+  ROLE_CANDIDATE = 1;
+  ROLE_BUSINESS_MANAGER = 2;
+}
+
+//======================================= MESSAGE ======================================
+
+
+message BaseData {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp updated_at = 2;
+}
+
+message SortMethod {
+  string name = 1;
+  SortType type = 2;
+}
+
+// Database
+message Interview {
+  string id = 1;
+  string position = 2;
+  string experience = 3;
+  string language = 4;
+  string voice_id = 5;
+  int32 speed = 6;
+  repeated string skills = 7;
+  repeated string skills_score = 8;
+  bool skip_code = 9;
+  int32 total_questions = 10;
+  int32 remaining_questions = 11;
+  TotalScore total_score = 12;
+  string positive_feedback = 13;
+  string actionable_feedback = 14;
+  string final_comment = 15;
+  InterviewStatus status = 16;
+  BaseData base_data = 17;
+}
+
+message Question {
+  string interview_id = 1;
+  int32 index = 2;
+  string content = 3;
+  string audio = 4;
+  LipSyncData lipsync = 5;
+  string answer = 6;
+  string record_proof = 7;
+  string comment = 8;
+  string score = 9;
+  QuestionStatus status = 10;
+  BaseData base_data = 11;
+}
+
+// 1. Start Interview
+message StartInterviewRequest {
+  string position = 1;
+  string experience = 2;
+  string language = 3;
+  string models = 4;
+  int32 speed = 5;
+  repeated string skills = 6;
+  int32 total_questions = 7;
+  bool skip_intro = 8;
+  bool skip_code = 9;
+}
+
+message StartInterviewResponse {
+  string interview_id = 1;
+}
+
+// 2. Get Next Question
+message QuestionRequest {
+  string interview_id = 1;
+  int32 question_index = 2;
+}
+
+message QuestionResponse {
+  int32 question_id = 1;
+  string content = 2;
+  string audio = 3;
+  LipSyncData lipsync = 4;
+  bool is_last_question = 5;
+}
+
+// 3. Submit Answer
+message SubmitAnswerRequest {
+  string interview_id = 1;
+  int32 index = 2;
+  string answer = 3;
+  string record_proof = 4;
+}
+
+message SubmitAnswerResponse {
+  string message = 1;
+}
+
+// 4. Submit Interview
+message SubmitInterviewRequest {
+  string interview_id = 1;
+}
+
+message SubmitInterviewResponse {
+  LipSyncResponse outro = 1;
+}
+
+message AnswerData {
+  int32 index = 1;
+  string question = 2;
+  string answer = 3;
+  string record_proof = 4;
+}
+
+// 5. Get Interview History
+message GetInterviewHistoryRequest {
+  int32 page_index = 1;
+  int32 page_size = 2;
+  optional string search_content = 3;
+  optional bool is_favorite = 4;
+  repeated SortMethod sort = 5;
+  google.protobuf.Timestamp from = 6;
+  google.protobuf.Timestamp to = 7;
+}
+
+message GetInterviewHistoryResponse {
+  int32 page = 1;
+  int32 per_page = 2;
+  int32 total_pages = 3;
+  repeated InterviewSummary interviews = 4;
+}
+
+message InterviewSummary {
+  string interview_id = 1;
+  string position = 2;
+  string experience = 3;
+  TotalScore total_score = 4;
+  BaseData base_data = 5;
+}
+
+// 6. Get Interview
+message GetInterviewRequest {
+  string interview_id = 1;
+}
+
+message AnswerResult {
+  int32 index = 1;
+  string content = 2;
+  string answer = 3;
+  string record_proof = 4;
+  string comment = 5;
+  string score = 6;   // "A", "B", "C", "D", "F"
+  QuestionStatus status = 7;
+}
+
+message TotalScore {
+  int32 A = 1;
+  int32 B = 2;
+  int32 C = 3;
+  int32 D = 4;
+  int32 F = 5;
+}
+
+message GetInterviewResponse {
+  string interview_id = 1;
+  repeated AnswerResult submissions = 2;
+  map<string, string> skills_score = 3;
+  TotalScore total_score = 4;
+  string positive_feedback = 5;
+  string actionable_feedback = 6;
+  string final_comment = 7;
+}
+
+// 6. Generate Next Question
+message QaPair {
+  string question = 1;
+  string answer = 2;
+}
+
+message Context {
+  string position = 1;
+  string experience = 2;
+  string language = 3;
+  repeated string skills = 4;
+  int32 total_questions = 5;
+  bool skip_code = 6;
+}
+
+message NextQuestionRequest {
+  string interview_id = 1;
+  repeated QaPair submissions = 2;
+  Context context = 3;
+  int32 remaining_questions = 4;
+}
+
+message NextQuestionResponse {
+  repeated string questions = 1;
+}
+
+// 7. Favorite Interview
+message FavoriteInterviewRequest {
+  string interview_id = 1;
+}
+
+// 8. Score Interview
+message ScoreInterviewRequest {
+  string interview_id = 1;
+  repeated AnswerData submissions = 2;
+}
+
+message AnswerScore {
+  int32 index = 1;
+  string comment = 2;
+  string score = 3;
+}
+
+message ScoreInterviewResponse {
+  repeated AnswerScore submissions = 1;
+  TotalScore total_score = 2;
+  map<string, string> skills = 3;
+  string positive_feedback = 4;
+  string actionable_feedback = 5;
+  string final_comment = 6;
+}
+
+// 9. Generate Lip Sync
+message LipSyncRequest {
+  string interview_id = 1;
+  string content = 2;
+  string voice_id = 3;
+  int32 speed = 4;
+}
+
+message LipSyncResponse {
+  string audio = 1;
+  LipSyncData lipsync = 2;
+}
+
+message LipSyncData {
+  LipSyncMetadata metadata = 1;
+  repeated MouthCue mouth_cues = 2;
+}
+
+message LipSyncMetadata {
+  string sound_file = 1;
+  float duration = 2;
+}
+
+message MouthCue {
+  float start = 1;
+  float end = 2;
+  string value = 3;
+}

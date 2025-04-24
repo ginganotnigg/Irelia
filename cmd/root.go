@@ -2,9 +2,12 @@ package cmd
 
 import (
     "log"
-    "go.uber.org/zap"
-    "github.com/joho/godotenv"
+    api "irelia/pkg/logger/api"
+    "irelia/pkg/logger/pkg/logging"
+    "context"
 
+    "github.com/joho/godotenv"
+    "github.com/spf13/viper"
 )
 
 
@@ -13,11 +16,20 @@ func Execute() {
     if err != nil {
         log.Fatalf("Error loading .env file")
     }
-    logger, err := zap.NewProduction()
-    if err != nil {
-            log.Fatalf("Failed to initialize logger: %v", err)
+    viper.SetConfigFile("./config/config.yaml")
+    if err := viper.ReadInConfig(); err != nil {
+        log.Fatalf("Error reading config file")
     }
-    defer logger.Sync()
+    // Initialize the customized logger
+    loggerConfig := &api.Logger{
+        Pretty: viper.GetBool("logger.pretty"),
+        Level:  api.Logger_Level(viper.GetInt("logger.level")),
+    }
+    if err := logging.InitLogger(loggerConfig); err != nil {
+        log.Fatalf("Failed to initialize logger: %v", err)
+    }
+    logger := logging.Logger(context.TODO())
+
 	go startGRPC(logger)
 	startGateway(logger)
 }

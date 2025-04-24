@@ -30,7 +30,7 @@ func NewKarmaService(karmaClient KarmaClient, logger *zap.Logger) *KarmaService 
 
 // KarmaClient defines the interface for the Karma service client
 type KarmaClient interface {
-    CallKarma(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error)
+    LipSync(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error)
 }
 
 // KarmaHTTPClient implements the KarmaClient interface using HTTP
@@ -62,7 +62,7 @@ func NewKarmaHTTPClient() *KarmaHTTPClient {
 }
 
 // CallKarma sends a REST API request to the Karma service
-func (k *KarmaHTTPClient) CallKarma(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error) {
+func (k *KarmaHTTPClient) LipSync(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error) {
     karmaURL := viper.GetString("karma.url")
 
     payloadBytes, err := json.Marshal(payload)

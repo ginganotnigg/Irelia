@@ -36,17 +36,14 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 func startGateway(logger *zap.Logger) {
-    viper.SetConfigFile("./config/config.yaml")
-    if err := viper.ReadInConfig(); err != nil {
-        logger.Fatal("Error reading config file", zap.Error(err))
-    }
-
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    mux := runtime.NewServeMux()
+    mux := runtime.NewServeMux(
+        runtime.WithMetadata(customMetadataAnnotator),
+    )
     opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-    err := api.RegisterInterviewServiceHandlerFromEndpoint(
+    err := api.RegisterIreliaHandlerFromEndpoint(
         ctx,
         mux,
         fmt.Sprintf("localhost:%s", viper.GetString("server.port")),
