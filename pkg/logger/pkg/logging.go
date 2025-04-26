@@ -2,11 +2,11 @@ package logging
 
 import (
 	"context"
-	logger "irelia/pkg/logger/api"
 	"fmt"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	
+	logger "irelia/pkg/logger/api"
 )
 
 var (

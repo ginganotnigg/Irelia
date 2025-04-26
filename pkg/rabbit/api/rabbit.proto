@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package greyhole.rabbit;
+
+option go_package = "irelia/pkg/rabbit/api;rabbit";
+
+message RabbitMQ {
+    string address = 1;
+    int32 port = 2;
+    string username = 3;  
+    string password = 4;
+    string consume_queue = 5;
+    string public_queue = 6;
+    int32 max_consumer = 7;
+    int32 expire_time = 8;
+}

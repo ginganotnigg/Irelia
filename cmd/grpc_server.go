@@ -18,6 +18,7 @@ import (
 	api "irelia/api"
 	feat "irelia/internal/features"
 	repo "irelia/internal/repo"
+	rb "irelia/pkg/rabbit/pkg"
 	"irelia/pkg/database/client"
 	"irelia/pkg/ent"
 	"irelia/pkg/ent/migrate"
@@ -37,9 +38,10 @@ func customMetadataAnnotator(ctx context.Context, req *http.Request) metadata.MD
 }
 
 func startGRPC(logger *zap.Logger) {
-	config := client.ReadConfig()
+	dbconfig := client.ReadConfig()
+	rbconfig := rb.ReadConfig()
 
-    drv, err := client.Open("mysql_irelia", config)
+    drv, err := client.Open("mysql_irelia", dbconfig)
     if err != nil {
         logger.Fatal("Failed to initialize Ent driver", zap.Error(err))
     }
@@ -54,12 +56,12 @@ func startGRPC(logger *zap.Logger) {
 		logger.Fatal("can not init my database", zap.Error(err))
 	}
 
+	rabbitMQ := rb.New(rbconfig)
     repository := repo.New(entClient)
 
-	// Initialize clients
-
-	// Create a combined service implementation that delegates to appropriate implementations
-	irelia := feat.New(repository, logger)
+	// Start consuming messages from RabbitMQ
+	// go rabbitMQ.Consume(context.Background(), repository.Interview.ReceiveScore)
+	irelia := feat.New(repository, rabbitMQ, logger)
 
 	// Start gRPC server
 	grpcServer := grpc.NewServer()

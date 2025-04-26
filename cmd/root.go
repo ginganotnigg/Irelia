@@ -2,12 +2,12 @@ package cmd
 
 import (
     "log"
-    api "irelia/pkg/logger/api"
-    "irelia/pkg/logger/pkg/logging"
     "context"
-
     "github.com/joho/godotenv"
     "github.com/spf13/viper"
+    
+    api "irelia/pkg/logger/api"
+    "irelia/pkg/logger/pkg"
 )
 
 

@@ -4,12 +4,10 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"time"
-
 	"github.com/go-sql-driver/mysql"
+	"github.com/spf13/viper"
 
 	db "irelia/pkg/database/api"
-
-	"github.com/spf13/viper"
 )
 
 func ReadConfig() *db.Database {

@@ -9,10 +9,8 @@ import (
 	"net/http"
 	"os"
 	"time"
-
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-
 	"github.com/go-sql-driver/mysql"
 	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
 

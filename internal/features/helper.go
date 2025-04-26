@@ -3,16 +3,17 @@ package features
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	// "google.golang.org/protobuf/encoding/protojson"
+	
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
 	"irelia/internal/utils/tx"
 	"irelia/pkg/ent"
-	"math/rand"
-	"strings"
-	"time"
-
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 /*
@@ -20,64 +21,43 @@ import (
  */
 
 func (s *Irelia) callDariusForGenerate(ctx context.Context, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
-	// Construct the payload to match the expected structure
-	submissions := make([]map[string]interface{}, len(req.Submissions))
-	for i, submission := range req.Submissions {
-		submissions[i] = map[string]interface{}{
-			"question": submission.Question,
-			"answer":   submission.Answer,
-		}
-	}
+    // Log the request for debugging
+    s.logger.Info("Sending request to Darius for question generation", zap.Any("request", req))
 
-	payload := map[string]interface{}{
-		// "context": map[string]interface{}{
-		// 	"position":     req.Context.Position,
-		// 	"experience":   req.Context.Experience,
-		// 	"language":     req.Context.Language,
-		// 	"skills":       req.Context.Skills,
-		// 	"maxQuestions": req.Context.TotalQuestions,
-		// 	"skipCode":     req.Context.SkipCode,
-		// },
-		"context": map[string]interface{}{
-			"field":        req.Context.Position,
-			"position":     req.Context.Experience,
-			"language":     req.Context.Language,
-			"level":        "Easy",
-			"maxQuestions": req.Context.TotalQuestions,
-			"coding":       false,
-		},
-		"submissions":        submissions,
-		"remainingQuestions": req.RemainingQuestions,
-	}
-
-	return s.dariusClient.Generate(ctx, payload)
+    // Call the Darius service
+    return s.dariusClient.Generate(ctx, req)
 }
 
 func (s *Irelia) callDariusForScore(ctx context.Context, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
-	// Construct the payload to match the expected structure
-	submissions := make([]map[string]any, len(req.Submissions))
-	for i, submission := range req.Submissions {
-		submissions[i] = map[string]any{
-			"index":       int32(i + 1),
-			"question":    submission.Question,
-			"answer":      submission.Answer,
-		}
-	}
+    // Log the request for debugging
+    s.logger.Info("Sending request to Darius for scoring", zap.Any("request", req))
 
-	payload := map[string]any{
-		"submissions": submissions,
-	}
-	s.logger.Info("Sending request to Darius for scoring", zap.Any("payload", payload))
-	return s.dariusClient.Score(ctx, payload)
+    // Call the Darius service
+    resp, err := s.dariusClient.Score(ctx, req)
+    if err != nil {
+        return nil, err
+    }
+
+    // // Publish the response to RabbitMQ
+    // jsonData, err := protojson.Marshal(resp)
+    // if err != nil {
+    //     s.logger.Error("Failed to marshal Darius response to JSON", zap.Error(err))
+    //     return nil, err
+    // }
+    // if err := s.rabbit.Publish(ctx, jsonData); err != nil {
+    //     s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
+    //     return nil, err
+    // }
+
+    return resp, nil
 }
 
 func (s *Irelia) callKarma(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
-	payload := map[string]interface{}{
-		"content": req.Content,
-		"voiceId": req.VoiceId,
-		"speed":   req.Speed,
-	}
-	return s.karmaClient.LipSync(ctx, payload)
+    // Log the request for debugging
+    s.logger.Info("Sending request to Karma for lip-sync generation", zap.Any("request", req))
+
+    // Call the Karma service
+    return s.karmaClient.LipSync(ctx, req)
 }
 
 // Generates the next question using Darius and saves it in the database

@@ -25,6 +25,16 @@ db:
   conn_max_life_time: 86400
   conn_max_idle_time: 3600
 
+rabbitmq: 
+  address: 0.0.0.0
+  port: 5672  
+  username: ${RABBITMQ_USERNAME}
+  password: ${RABBITMQ_PASSWORD}
+  consume_queue: consume_queue
+  public_queue: public_queue
+  max_consumer: 5
+  expire_time: 86400000
+
 logger:
   level: DEBUG
   pretty: true

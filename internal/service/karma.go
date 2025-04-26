@@ -3,118 +3,71 @@ package service
 import (
     "bytes"
     "context"
-    "encoding/json"
     "io"
     "net/http"
-
     "github.com/spf13/viper"
     "go.uber.org/zap"
     "google.golang.org/grpc/codes"
     "google.golang.org/grpc/status"
+    "google.golang.org/protobuf/encoding/protojson"
+
     pb "irelia/api"
 )
 
-// KarmaService handles communication with the Karma service
-type KarmaService struct {
-    karmaClient KarmaClient
-    logger      *zap.Logger
-}
-
-// NewKarmaService creates a new KarmaService instance
-func NewKarmaService(karmaClient KarmaClient, logger *zap.Logger) *KarmaService {
-    return &KarmaService{
-        karmaClient: karmaClient,
-        logger:      logger,
-    }
-}
-
-// KarmaClient defines the interface for the Karma service client
-type KarmaClient interface {
-    LipSync(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error)
-}
-
-// KarmaHTTPClient implements the KarmaClient interface using HTTP
-type KarmaHTTPClient struct {
+// KarmaClient implements the KarmaClient interface using HTTP
+type KarmaClient struct {
     client *http.Client
+    logger *zap.Logger
 }
 
-type KarmaResponse struct {
-    Audio   string `json:"audio"`
-    Lipsync struct {
-        Metadata struct {
-            SoundFile string  `json:"soundFile"`
-            Duration float32 `json:"duration"`
-        } `json:"metadata"`
-        MouthCues []struct {
-            Start float32 `json:"start"`
-            End   float32 `json:"end"`
-            Value string  `json:"value"`
-        } `json:"mouthCues"`
-        Error string `json:"error,omitempty"`
-    } `json:"lipsync"`
-}
-
-// NewKarmaHTTPClient creates a new Karma HTTP client
-func NewKarmaHTTPClient() *KarmaHTTPClient {
-    return &KarmaHTTPClient{
+// NewKarmaClient creates a new Karma HTTP client
+func NewKarmaClient(logger *zap.Logger) *KarmaClient {
+    return &KarmaClient{
         client: &http.Client{},
+        logger: logger,
     }
 }
 
-// CallKarma sends a REST API request to the Karma service
-func (k *KarmaHTTPClient) LipSync(ctx context.Context, payload map[string]interface{}) (*pb.LipSyncResponse, error) {
+// LipSync sends a REST API request to the Karma service
+func (k *KarmaClient) LipSync(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
     karmaURL := viper.GetString("karma.url")
 
-    payloadBytes, err := json.Marshal(payload)
+    // Marshal the Protobuf request to JSON
+    payloadBytes, err := protojson.Marshal(req)
     if err != nil {
-        return nil, status.Errorf(codes.Internal, "Failed to marshal payload: %v", err)
+        return nil, status.Errorf(codes.Internal, "Failed to marshal request: %v", err)
     }
 
+    // Create the HTTP request
     httpReq, err := http.NewRequestWithContext(ctx, "POST", karmaURL, bytes.NewBuffer(payloadBytes))
     if err != nil {
         return nil, status.Errorf(codes.Internal, "Failed to create HTTP request: %v", err)
     }
     httpReq.Header.Set("Content-Type", "application/json")
 
+    // Send the HTTP request
     resp, err := k.client.Do(httpReq)
     if err != nil {
         return nil, status.Errorf(codes.Internal, "Failed to send HTTP request: %v", err)
     }
     defer resp.Body.Close()
 
+    // Read the response body
     body, err := io.ReadAll(resp.Body)
     if err != nil {
         return nil, status.Errorf(codes.Internal, "Failed to read response body: %v", err)
     }
 
+    // Check for non-200 status codes
     if resp.StatusCode != http.StatusOK {
         return nil, status.Errorf(codes.Internal, "Karma service returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
     }
 
-    var karmaResp KarmaResponse
-    if err := json.Unmarshal(body, &karmaResp); err != nil {
+    // Unmarshal the JSON response into a Protobuf message
+    var karmaResp pb.LipSyncResponse
+    if err := protojson.Unmarshal(body, &karmaResp); err != nil {
         return nil, status.Errorf(codes.Internal, "Failed to unmarshal response JSON: %v", err)
     }
 
-    // Convert to protobuf response
-    lipSyncData := &pb.LipSyncData{
-        Metadata: &pb.LipSyncMetadata{
-            SoundFile: karmaResp.Lipsync.Metadata.SoundFile,
-            Duration:  karmaResp.Lipsync.Metadata.Duration,
-        },
-        MouthCues: make([]*pb.MouthCue, len(karmaResp.Lipsync.MouthCues)),
-    }
-
-    for i, cue := range karmaResp.Lipsync.MouthCues {
-        lipSyncData.MouthCues[i] = &pb.MouthCue{
-            Start: cue.Start,
-            End:   cue.End,
-            Value: cue.Value,
-        }
-    }
-
-    return &pb.LipSyncResponse{
-        Audio:   karmaResp.Audio,
-        Lipsync: lipSyncData,
-    }, nil
+    return &karmaResp, nil
 }

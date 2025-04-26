@@ -8,7 +8,6 @@ import (
     "os/signal"
     "syscall"
     "time"
-
     "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
     "github.com/spf13/viper"
     "go.uber.org/zap"

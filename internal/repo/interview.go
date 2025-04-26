@@ -1,15 +1,19 @@
 package repo
 
 import (
-    "context"
-    "errors"
+	"context"
+	"errors"
 
-    pb "irelia/api"
-    "irelia/pkg/ent"
-    einterview "irelia/pkg/ent/interview"
-    efavorite "irelia/pkg/ent/interviewfavorite"
-    "irelia/internal/utils/sort"
+	"entgo.io/ent/dialect/sql"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"google.golang.org/protobuf/encoding/protojson"
+
+	pb "irelia/api"
+	"irelia/internal/utils/sort"
 	"irelia/internal/utils/tx"
+	"irelia/pkg/ent"
+	einterview "irelia/pkg/ent/interview"
+	efavorite "irelia/pkg/ent/interviewfavorite"
 )
 
 type IInterview interface {
@@ -21,6 +25,7 @@ type IInterview interface {
     List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error)
     Exists(ctx context.Context, interviewID string) (bool, error)
     Favorite(ctx context.Context, ownerId uint64, interviewID string) error
+    ReceiveScore(ctx context.Context, msg amqp.Delivery) error
 }
 
 type EntInterview struct {
@@ -161,7 +166,9 @@ func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequ
     totalPage := (int32(totalCount)-1)/req.PageSize + 1
 
     interviews, err := query.
-        Modify(sorts).
+        Modify(func(s *sql.Selector) {
+            s.OrderBy(sorts...)
+        }).
         Offset(int(req.PageIndex) * int(req.PageSize)).
         Limit(int(req.PageSize)).
         Select(
@@ -222,4 +229,32 @@ func (r *EntInterview) Favorite(ctx context.Context, ownerId uint64, interviewID
         SetInterviewID(interviewID).
         Save(ctx)
     return err
+}
+
+func (r *EntInterview) ReceiveScore(ctx context.Context, msg amqp.Delivery) error {
+    var score pb.ScoreInterviewRequest
+    if err := protojson.Unmarshal(msg.Body, &score); err != nil {
+        return err
+    }
+
+    interview, err := r.client.Interview.
+        Query().
+        Where(einterview.ID(score.InterviewId)).
+        Only(ctx)
+    if err != nil {
+        return err
+    }
+
+    return tx.WithTransaction(ctx, r.client, func(ctx context.Context, tx tx.Tx) error {
+		_, err := tx.Client().Interview.
+        UpdateOneID(interview.ID).
+        SetSkillsScore(interview.SkillsScore).
+        SetTotalScore(interview.TotalScore).
+        SetPositiveFeedback(interview.PositiveFeedback).
+        SetActionableFeedback(interview.ActionableFeedback).
+        SetFinalComment(interview.FinalComment).
+        SetStatus(interview.Status).
+        Save(ctx)
+        return err
+	})
 }

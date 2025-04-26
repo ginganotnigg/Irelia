@@ -3,21 +3,20 @@ package features
 import (
 	"context"
 	"fmt"
-
-	pb "irelia/api"
-	repo "irelia/internal/repo"
-	sv "irelia/internal/service"
-
-	ext "irelia/internal/utils/extractor"
-	"irelia/internal/utils/tx"
-	"irelia/pkg/ent"
-
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	pb "irelia/api"
+	repo "irelia/internal/repo"
+	sv "irelia/internal/service"
+	ext "irelia/internal/utils/extractor"
+	gen "irelia/internal/utils/generator"
+	"irelia/internal/utils/tx"
+	"irelia/pkg/ent"
+	rabbit "irelia/pkg/rabbit/pkg"
 )
 
 type IIrelia interface {
@@ -36,20 +35,22 @@ type Irelia struct {
 	dariusClient sv.DariusClient
 	karmaClient  sv.KarmaClient
 	repo         repo.Repository
+	rabbit       rabbit.Rabbit
 	logger       *zap.Logger
 	extractor    ext.Extractor
 }
 
 // NewIrelia creates a new gRPC service for Frontend to Irelia communication
-func New(repo *repo.Repository, logger *zap.Logger) *Irelia {
+func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger) *Irelia {
 	ext := ext.New()
-	dariusClient := sv.NewDariusHTTPClient()
-	karmaClient := sv.NewKarmaHTTPClient()
+	dariusClient := sv.NewDariusClient(logger)
+	karmaClient := sv.NewKarmaClient(logger)
 
 	return &Irelia{
-		dariusClient: dariusClient,
-		karmaClient:  karmaClient,
+		dariusClient: *dariusClient,
+		karmaClient:  *karmaClient,
 		repo:         *repo,
+		rabbit:       rabbit,
 		logger:       logger,
 		extractor:    ext,
 	}
@@ -77,7 +78,7 @@ func (s *Irelia) StartInterview(ctx context.Context, req *pb.StartInterviewReque
 	// Generate a unique interview ID
 	var interviewID string
 	for {
-		interviewID = uuid.New().String()
+		interviewID = gen.GenerateUUID()
 		exists, err := s.repo.Interview.Exists(ctx, interviewID)
 		if err != nil {
 			s.logger.Error("Failed to query interview", zap.Error(err))
@@ -380,9 +381,12 @@ func (s *Irelia) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) 
 		return nil, fmt.Errorf("failed to retrieve questions: %v", err)
 	}
 
-	skillsMap := make(map[string]string)
-	for i, skill := range entInterview.Skills {
-		skillsMap[skill] = entInterview.SkillsScore[i]
+
+	skillsMap := make(map[string]string, len(entInterview.Skills))
+	if len(entInterview.SkillsScore) == len(entInterview.Skills) {
+		for i, skill := range entInterview.Skills {
+			skillsMap[skill] = entInterview.SkillsScore[i]
+		}
 	}
 
 	return &pb.GetInterviewResponse{
