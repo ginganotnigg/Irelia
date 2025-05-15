@@ -212,9 +212,9 @@ message SubmitInterviewResponse {
 
 message AnswerData {
   int32 index = 1;
-  string question = 2;
-  string answer = 3;
-  string record_proof = 4;
+  string answer = 2;
+  optional string record_proof = 3;
+  optional string question = 4;
 }
 
 // 5. Get Interview History
@@ -313,6 +313,11 @@ message ScoreInterviewRequest {
   repeated AnswerData submissions = 2;
 }
 
+message ScoreFluencyRequest {
+  string interview_id = 1;
+  repeated AnswerData submissions = 2;
+}
+
 message AnswerScore {
   int32 index = 1;
   string comment = 2;
@@ -320,12 +325,18 @@ message AnswerScore {
 }
 
 message ScoreInterviewResponse {
-  repeated AnswerScore submissions = 1;
+  repeated AnswerScore result = 1;
   TotalScore total_score = 2;
   map<string, string> skills = 3;
   string positive_feedback = 4;
   string actionable_feedback = 5;
   string final_comment = 6;
+}
+
+message ScoreFluencyResponse {
+  repeated AnswerScore result = 1;
+  map<string, string> skills = 2;
+  string actionable_feedback = 3;
 }
 
 // 9. Generate Lip Sync

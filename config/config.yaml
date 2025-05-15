@@ -4,7 +4,8 @@ server:
   gwport: 3141
 
 karma:
-  url: "http://localhost:5000/api/lip-sync"
+  genurl: "https://skillsharp-api.icu/karma/lip-sync"
+  scrurl: "https://skillsharp-api.icu/karma/audio-score"
 
 darius:
   genurl: "https://skillsharp-api.icu/darius/v1/suggest_interview_question"
@@ -38,6 +39,10 @@ rabbitmq:
 logger:
   level: DEBUG
   pretty: true
+
+redis:
+  address: ${REDIS_ADDRESS}
+  namespace: ${REDIS_NAMESPACE}
 
 questions_to_prepare: 1
 

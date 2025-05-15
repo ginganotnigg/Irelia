@@ -129,6 +129,12 @@ func (r *EntInterview) GetContext(ctx context.Context, interviewID string) (*pb.
 
 // List retrieves a list of completed interviews with search, paging, and ordering
 func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error) {
+    if req.PageIndex == 0 {
+        req.PageIndex = 1 // Default to the first page
+    }
+    if req.PageSize == 0 {
+        req.PageSize = 10 // Default to 10 items per page
+    }
     query := r.client.Interview.Query().Where(einterview.StatusEQ(pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED))
 
     if (req.From == nil && req.To != nil) || (req.From != nil && req.To == nil) {
@@ -169,7 +175,7 @@ func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequ
         Modify(func(s *sql.Selector) {
             s.OrderBy(sorts...)
         }).
-        Offset(int(req.PageIndex) * int(req.PageSize)).
+        Offset(int(req.PageIndex-1) * int(req.PageSize)).
         Limit(int(req.PageSize)).
         Select(
             einterview.FieldID,

@@ -8,7 +8,7 @@ import (
 	"time"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	// "google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/protojson"
 	
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
@@ -18,7 +18,7 @@ import (
 
 /*
 * SERVICE FUNCTIONS
- */
+*/
 
 func (s *Irelia) callDariusForGenerate(ctx context.Context, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
     // Log the request for debugging
@@ -38,26 +38,34 @@ func (s *Irelia) callDariusForScore(ctx context.Context, req *pb.ScoreInterviewR
         return nil, err
     }
 
-    // // Publish the response to RabbitMQ
-    // jsonData, err := protojson.Marshal(resp)
-    // if err != nil {
-    //     s.logger.Error("Failed to marshal Darius response to JSON", zap.Error(err))
-    //     return nil, err
-    // }
-    // if err := s.rabbit.Publish(ctx, jsonData); err != nil {
-    //     s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
-    //     return nil, err
-    // }
+    // Publish the response to RabbitMQ
+    jsonData, err := protojson.Marshal(resp)
+    if err != nil {
+        s.logger.Error("Failed to marshal Darius response to JSON", zap.Error(err))
+        return nil, err
+    }
+    if err := s.rabbit.Publish(ctx, jsonData); err != nil {
+        s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
+        return nil, err
+    }
 
     return resp, nil
 }
 
-func (s *Irelia) callKarma(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
+func (s *Irelia) callKarmaForLipSync(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
     // Log the request for debugging
     s.logger.Info("Sending request to Karma for lip-sync generation", zap.Any("request", req))
 
     // Call the Karma service
     return s.karmaClient.LipSync(ctx, req)
+}
+
+func (s *Irelia) callKarmaForScore(ctx context.Context, req *pb.ScoreFluencyRequest) (*pb.ScoreFluencyResponse, error) {
+    // Log the request for debugging
+    s.logger.Info("Sending request to Karma for fluency scoring", zap.Any("request", req))
+
+    // Call the Karma service
+    return s.karmaClient.Score(ctx, req)
 }
 
 // Generates the next question using Darius and saves it in the database
@@ -138,31 +146,31 @@ func (s *Irelia) generateNextQuestion(ctx context.Context, interviewID string, u
 }
 
 // Prepare lip-sync data for a question synchronously
-func (s *Irelia) prepareLipSync(ctx context.Context, interviewID string, userID uint64, question *ent.Question, voiceID string, speed int32, isOutro bool) error {
+func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool) error {
 	if question == nil {
-		s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interviewID))
+		s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
 		return fmt.Errorf("question is nil, cannot prepare lip sync")
 	}
 
-	s.logger.Info("Preparing lip sync", zap.String("interviewId", interviewID), zap.String("content", question.Content))
+	s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
 
 	// Prepare the full string for lip-sync
 	var fullString string
 	if isOutro {
 		fullString = question.Content
 	} else {
-		fullString = s.addTransitionsToQuestion(question, voiceID)
+		fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
 	}
 
 	// Call the Karma service to generate lip-sync data
 	karmaReq := &pb.LipSyncRequest{
-		InterviewId: interviewID,
+		InterviewId: interview.ID,
 		Content:     fullString,
-		VoiceId:     voiceID,
-		Speed:       speed,
+		VoiceId:     interview.VoiceID,
+		Speed:       interview.Speed,
 	}
 
-	karmaResp, err := s.callKarma(ctx, karmaReq)
+	karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
 	if err != nil {
 		return fmt.Errorf("failed to generate lip sync: %v", err)
 	}
@@ -177,7 +185,7 @@ func (s *Irelia) prepareLipSync(ctx context.Context, interviewID string, userID 
 
 	// Save the updated question in the database within a transaction
 	if txErr := tx.WithTransaction(ctx, s.repo.Ent, func(ctx context.Context, tx tx.Tx) error {
-		return s.repo.Question.Update(ctx, tx, userID, question)
+		return s.repo.Question.Update(ctx, tx, interview.UserID, question)
 	}); txErr != nil {
 		s.logger.Error("Failed to save question's lip-sync data", zap.Error(txErr))
 		return txErr
@@ -223,7 +231,7 @@ func (s *Irelia) asyncPrepareQuestion(interviewID string, userID uint64, nextQue
 
 	if nextQuestion != nil {
 		// Prepare lip-sync data for the next question
-		if err := s.prepareLipSync(ctx, interviewID, userID, nextQuestion, interview.VoiceID, interview.Speed, false); err != nil {
+		if err := s.prepareLipSync(ctx, nextQuestion, interview, false); err != nil {
 			s.logger.Error("Failed to prepare lip sync for the next question", zap.Error(err))
 		}
 	}
@@ -257,38 +265,66 @@ func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {
 
 /*
 * HELPER FUNCTIONS
- */
+*/
 
 // Store the intro question in a slice
-func (s *Irelia) generateIntroQuestion() string {
-	questions := []string{
-		"Please provide a brief overview of your professional background and key qualifications.",
-		"Reflecting on your professional journey, what is one area you are actively working to develop and why?",
-		"What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
-	}
+func (s *Irelia) generateIntroQuestion(language string) string {
+    var questions []string
 
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-	randomIndex := rand.Intn(len(questions))
+    if language == "Vietnamese" {
+        questions = []string{
+            "Vui lòng cung cấp một cái nhìn tổng quan ngắn gọn về nền tảng chuyên môn và các kỹ năng chính của bạn.",
+            "Nhìn lại hành trình nghề nghiệp của bạn, đâu là một lĩnh vực bạn đang tích cực phát triển và tại sao?",
+            "Những điểm mạnh cốt lõi nào bạn nghĩ rằng bạn mang lại cho vai trò này và bạn đã thể hiện chúng như thế nào trong quá khứ?",
+        }
+    } else {
+        questions = []string{
+            "Please provide a brief overview of your professional background and key qualifications.",
+            "Reflecting on your professional journey, what is one area you are actively working to develop and why?",
+            "What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
+        }
+    }
 
-	return questions[randomIndex]
+    // Seed the random number generator
+    rand.Seed(time.Now().UnixNano())
+    randomIndex := rand.Intn(len(questions))
+
+    return questions[randomIndex]
 }
 
 // Store the position-specific questions in a slice
-func (s *Irelia) generatePositionSpecificQuestions(position string) string {
-	questions := []string{
-		fmt.Sprintf("Could you describe some of your most engaging projects within %s?", position),
-		fmt.Sprintf("What relevant experiences do you possess in the field of %s?", position),
-		fmt.Sprintf("In your opinion, what are the primary challenges currently facing professionals in %s?", position),
-		fmt.Sprintf("Could you share your journey into the field of %s?", position),
-		fmt.Sprintf("What aspects of working within %s do you find particularly fulfilling?", position),
-		fmt.Sprintf("What emerging trends within %s are you most enthusiastic about and why?", position),
-		fmt.Sprintf("What are some prevalent misconceptions surrounding the profession of %s?", position),
-		fmt.Sprintf("Can you elaborate on any professional development initiatives you've undertaken within %s?", position),
-		fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
-		fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
-		fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
-	}
+func (s *Irelia) generatePositionSpecificQuestions(position string, language string) string {
+	var questions []string
+
+    if language == "Vietnamese" {
+        questions = []string{
+            fmt.Sprintf("Bạn có thể mô tả một số dự án hấp dẫn nhất của bạn trong lĩnh vực %s không?", position),
+            fmt.Sprintf("Những kinh nghiệm liên quan nào bạn có trong lĩnh vực %s?", position),
+            fmt.Sprintf("Theo bạn, những thách thức chính hiện nay mà các chuyên gia trong lĩnh vực %s đang đối mặt là gì?", position),
+            fmt.Sprintf("Bạn có thể chia sẻ hành trình của mình vào lĩnh vực %s không?", position),
+            fmt.Sprintf("Những khía cạnh nào của công việc trong lĩnh vực %s mà bạn thấy đặc biệt thú vị?", position),
+            fmt.Sprintf("Những xu hướng mới nổi nào trong lĩnh vực %s mà bạn cảm thấy hào hứng nhất và tại sao?", position),
+            fmt.Sprintf("Những hiểu lầm phổ biến nào xung quanh nghề nghiệp trong lĩnh vực %s?", position),
+            fmt.Sprintf("Bạn có thể giải thích về bất kỳ sáng kiến phát triển nghề nghiệp nào bạn đã thực hiện trong lĩnh vực %s không?", position),
+            fmt.Sprintf("Bạn sẽ đưa ra lời khuyên gì cho một người mới bắt đầu sự nghiệp trong lĩnh vực %s?", position),
+            fmt.Sprintf("Những khát vọng của bạn cho sự nghiệp trong lĩnh vực %s là gì?", position),
+            fmt.Sprintf("Theo bạn, những kỹ năng quan trọng nhất để thành công trong lĩnh vực %s là gì?", position),
+        }
+    } else {
+        questions = []string{
+            fmt.Sprintf("Could you describe some of your most engaging projects within %s?", position),
+            fmt.Sprintf("What relevant experiences do you possess in the field of %s?", position),
+            fmt.Sprintf("In your opinion, what are the primary challenges currently facing professionals in %s?", position),
+            fmt.Sprintf("Could you share your journey into the field of %s?", position),
+            fmt.Sprintf("What aspects of working within %s do you find particularly fulfilling?", position),
+            fmt.Sprintf("What emerging trends within %s are you most enthusiastic about and why?", position),
+            fmt.Sprintf("What are some prevalent misconceptions surrounding the profession of %s?", position),
+            fmt.Sprintf("Can you elaborate on any professional development initiatives you've undertaken within %s?", position),
+            fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
+            fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
+            fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
+        }
+    }
 	rand.Seed(time.Now().UnixNano())
 	randomIndex := rand.Intn(len(questions))
 
@@ -316,19 +352,37 @@ func (s *Irelia) substringAfterLastDotOrDash(str string) string {
 }
 
 // Add transitions to the question content
-func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string) string {
-	responseTokens := []string{
-		"I see.", "That sounds good.", "Interesting.", "Got it.", "Alright.", "Understood.",
-	}
-	transitionSentences := []string{
-		"Now, let's move on to the next question.", "Let's proceed to the next question.", "Moving on to the next question.",
-		"Next question coming up.", "Here's the next question.",
-	}
+func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string, language string) string {
+	var responseTokens []string
+    var transitionSentences []string
+
+    if language == "Vietnamese" {
+        responseTokens = []string{
+            "Tôi hiểu.", "Nghe hay đấy.", "Thú vị.", "OK.", "Được rồi.", "Hiểu rồi.",
+        }
+        transitionSentences = []string{
+            "Bây giờ, chúng ta hãy chuyển sang câu hỏi tiếp theo.", "Hãy tiếp tục với câu hỏi tiếp theo.", "Chuyển sang câu hỏi tiếp theo.",
+            "Câu hỏi tiếp theo đây.", "Đây là câu hỏi tiếp theo.",
+        }
+    } else {
+        responseTokens = []string{
+            "I see.", "That sounds good.", "Interesting.", "Got it.", "Alright.", "Understood.",
+        }
+        transitionSentences = []string{
+            "Now, let's move on to the next question.", "Let's proceed to the next question.", "Moving on to the next question.",
+            "Next question coming up.", "Here's the next question.",
+        }
+    }
 
 	rand.Seed(time.Now().UnixNano())
 	if question.QuestionIndex == 1 {
 		// Add an intro for the first question
-		intro := fmt.Sprintf("Thanks for joining this interview session today. I'm %s, nice to meet you. To begin with, let me ask you some questions.", s.substringAfterLastDotOrDash(voiceID))
+		var intro string
+        if language == "Vietnamese" {
+            intro = fmt.Sprintf("Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là %s, rất vui được gặp bạn. Để bắt đầu, tôi sẽ hỏi bạn một số câu hỏi.", s.substringAfterLastDotOrDash(voiceID))
+        } else {
+            intro = fmt.Sprintf("Thanks for joining this interview session today. I'm %s, nice to meet you. To begin with, let me ask you some questions.", s.substringAfterLastDotOrDash(voiceID))
+        }
 		fullString := intro + " " + question.Content
 		return fullString
 	}
@@ -336,4 +390,11 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
 	transition := transitionSentences[rand.Intn(len(transitionSentences))]
 	fullString := responseToken + " " + transition + " " + question.Content
 	return fullString
+}
+
+func (s *Irelia) prepareOutro(language string) string {
+    if language == "Vietnamese" {
+        return "Bạn đã hoàn thành buổi phỏng vấn. Bạn có thể kiểm tra kết quả sau vài phút. Hẹn gặp lại bạn trong một buổi phỏng vấn khác!"
+    }
+    return "You have successfully submitted the interview. You can check out the results in a few minutes. See you in another interview session!"
 }

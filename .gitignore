@@ -1,1 +1,9 @@
+# IDE metadata
+.idea/
+.vscode/
+
+# MacOS metadata
+.DS_Store
+
+# Environment variables
 .env
