@@ -96,6 +96,7 @@ func (r *EntQuestion) List(ctx context.Context, interviewID string) ([]*pb.Answe
             RecordProof: entQuestion.RecordProof,
             Comment:     entQuestion.Comment,
             Score:       entQuestion.Score,
+            Status:      entQuestion.Status,
         }
     }
 

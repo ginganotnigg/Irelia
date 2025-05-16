@@ -454,9 +454,6 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
         })
     }
 
-	s.logger.Info("Interview history retrieved", zap.Int32("totalCount", totalCount), zap.Int32("totalPages", totalPages))
-
-
 	return &pb.GetInterviewHistoryResponse{
 		Page:       req.PageIndex,
 		PerPage:    req.PageSize,

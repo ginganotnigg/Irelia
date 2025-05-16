@@ -55,6 +55,10 @@ func Open(name string, cfg *dbe.Database) (*entsql.Driver, error) {
 			return nil, err
 		}
 	}
+	if err = db.Ping(); err != nil {
+		return nil, errors.New("failed to ping database: " + err.Error())
+	}
+
 	drv := entsql.OpenDB(dialect.MySQL, db)
 	if cfg.GetMaxIdleConns() > 0 {
 		drv.DB().SetMaxIdleConns(int(cfg.GetMaxIdleConns()))

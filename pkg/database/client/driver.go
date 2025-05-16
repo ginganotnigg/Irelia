@@ -72,6 +72,7 @@ func (d *Driver) Open(_ string) (driver.Conn, error) {
 	mysqlConfig := &mysql.Config{
 		Addr:                    dbEndpoint,
 		DBName:                  d.config.GetName(),
+		Net:                     "tcp",
 		AllowCleartextPasswords: true,
 		AllowNativePasswords:    true,
 		ParseTime:               true,
