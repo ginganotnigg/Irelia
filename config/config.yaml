@@ -31,8 +31,8 @@ rabbitmq:
   port: 5672  
   username: ${RABBITMQ_USERNAME}
   password: ${RABBITMQ_PASSWORD}
-  consume_queue: consume_queue
-  public_queue: public_queue
+  consume_queue: f3_consume_queue
+  public_queue: f3_public_queue
   max_consumer: 5
   expire_time: 86400000
 

@@ -12,11 +12,22 @@ import (
 
 
 func Execute() {
-	err := godotenv.Load()
-    if err != nil {
-        log.Fatalf("Error loading .env file")
-    }
-    viper.SetConfigFile("./config/config.yaml")
+    _ = godotenv.Load()
+
+    viper.AutomaticEnv()
+    
+	viper.BindEnv("db.host", "DB_HOST")
+    viper.BindEnv("db.port", "DB_PORT")
+    viper.BindEnv("db.user", "DB_USER")
+    viper.BindEnv("db.password", "DB_PASSWORD")
+    viper.BindEnv("db.name", "DB_NAME")
+    viper.BindEnv("db.aws_region", "DB_AWS_REGION")
+    viper.BindEnv("db.auth_method", "DB_AUTH_METHOD")
+    viper.BindEnv("rabbitmq.username", "RABBITMQ_USERNAME")
+    viper.BindEnv("rabbitmq.password", "RABBITMQ_PASSWORD")
+
+    configPath := "./config/config.yaml"
+    viper.SetConfigFile(configPath)
     if err := viper.ReadInConfig(); err != nil {
         log.Fatalf("Error reading config file")
     }
