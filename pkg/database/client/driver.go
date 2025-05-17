@@ -11,18 +11,6 @@ import (
 )
 
 func ReadConfig() *db.Database {
-	// Enable environment variable usage
-	viper.BindEnv("db.user", "DB_USER")
-	viper.BindEnv("db.password", "DB_PASSWORD")
-	viper.BindEnv("db.host", "DB_HOST")
-	viper.BindEnv("db.port", "DB_PORT")
-	viper.BindEnv("db.name", "DB_NAME")
-	viper.BindEnv("db.aws_region", "DB_AWS_REGION")
-	viper.BindEnv("db.auth_method", "DB_AUTH_METHOD")
-
-	// Map the auth_method string to the enum
-	authMethod := mapAuthMethod(viper.GetString("db.auth_method"))
-
 	return &db.Database{
 		Username:       viper.GetString("db.user"),
 		Password:       viper.GetString("db.password"),
@@ -30,7 +18,7 @@ func ReadConfig() *db.Database {
 		Port:           viper.GetUint32("db.port"),
 		Name:           viper.GetString("db.name"),
 		AwsRegion:      viper.GetString("db.aws_region"),
-		AuthMethod:     authMethod,
+		AuthMethod:     mapAuthMethod(viper.GetString("db.auth_method")),
 		TracingEnabled: viper.GetBool("db.tracing_enabled"),
 		MaxOpenConns:   viper.GetUint32("db.max_open_conns"),
 		MaxIdleConns:   viper.GetUint32("db.max_idle_conns"),

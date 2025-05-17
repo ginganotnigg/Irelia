@@ -24,10 +24,6 @@ type rabbit struct {
 }
 
 func ReadConfig() *rb.RabbitMQ {
-	// Enable environment variable usage
-	viper.BindEnv("rabbitmq.username", "RABBITMQ_USERNAME")
-	viper.BindEnv("rabbitmq.password", "RABBITMQ_PASSWORD")
-
 	return &rb.RabbitMQ{
 		Address:      viper.GetString("rabbitmq.address"),
 		Port:         viper.GetInt32("rabbitmq.port"),
