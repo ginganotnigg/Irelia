@@ -3,4 +3,5 @@
 
 # backend
 build/
+config/
 .env
