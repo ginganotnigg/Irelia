@@ -3,6 +3,7 @@ package cmd
 import (
     "log"
     "context"
+    "flag"
     "github.com/joho/godotenv"
     "github.com/spf13/viper"
     
@@ -12,8 +13,10 @@ import (
 
 
 func Execute() {
-    _ = godotenv.Load()
+    configPath := flag.String("c", "config.yaml", "Path to config file")
+    flag.Parse()
 
+    _ = godotenv.Load()
     viper.AutomaticEnv()
     
 	viper.BindEnv("db.host", "DB_HOST")
@@ -26,8 +29,7 @@ func Execute() {
     viper.BindEnv("rabbitmq.username", "RABBITMQ_USERNAME")
     viper.BindEnv("rabbitmq.password", "RABBITMQ_PASSWORD")
 
-    configPath := "./config/config.yaml"
-    viper.SetConfigFile(configPath)
+    viper.SetConfigFile(*configPath)
     if err := viper.ReadInConfig(); err != nil {
         log.Fatalf("Error reading config file")
     }
