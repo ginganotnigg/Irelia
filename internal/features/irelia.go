@@ -346,22 +346,22 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		}
 
 		// Update the interview with feedback and total score
-        skillSet := make(map[string]string) // Use a map to avoid duplicate skills
-        for skill, score := range dariusResp.Skills {
-            skillSet[skill] = score
-        }
-        for skill, score := range karmaResp.Skills {
-            skillSet[skill] = score
-        }
+		totalLength := len(dariusResp.Skills)+len(karmaResp.Skills)
+		skills := make([]string, 0, totalLength)
+		skillsScore := make([]string, 0, totalLength)
 
-        // Convert the map to slices
-        interview.Skills = make([]string, 0, len(skillSet))
-        interview.SkillsScore = make([]string, 0, len(skillSet))
-        for skill, score := range skillSet {
-            interview.Skills = append(interview.Skills, skill)
-            interview.SkillsScore = append(interview.SkillsScore, score)
+        for _, ele := range dariusResp.Skills {
+			skills = append(skills, ele.Skill)
+            skillsScore = append(skillsScore, ele.Score)
+		}
+
+		for skill, score := range karmaResp.Skills {
+            skills = append(skills, skill)
+            skillsScore = append(skillsScore, score)
         }
 		
+		interview.Skills = skills
+		interview.SkillsScore = skillsScore
 		interview.TotalScore = dariusResp.TotalScore
 		interview.PositiveFeedback = dariusResp.PositiveFeedback
 		interview.ActionableFeedback = dariusResp.ActionableFeedback + " " + karmaResp.ActionableFeedback

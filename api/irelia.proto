@@ -324,10 +324,15 @@ message AnswerScore {
   string score = 3;
 }
 
+message SkillScore {
+  string skill = 1;
+  string score = 2;
+}
+
 message ScoreInterviewResponse {
   repeated AnswerScore result = 1;
   TotalScore total_score = 2;
-  map<string, string> skills = 3;
+  repeated SkillScore skills = 3;
   string positive_feedback = 4;
   string actionable_feedback = 5;
   string final_comment = 6;
