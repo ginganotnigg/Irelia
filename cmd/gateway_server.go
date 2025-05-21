@@ -8,23 +8,37 @@ import (
     "os/signal"
     "syscall"
     "time"
+    "strings"
     "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
     "github.com/spf13/viper"
     "go.uber.org/zap"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
 
+    ext "irelia/internal/utils/extractor"
     api "irelia/api"
 )
+
+// getAllCustomHeaders returns a comma-separated list of all custom headers
+func getAllCustomHeaders() string {
+    headers := []string{
+        ext.TenantID, ext.TokenID, ext.SafeID, ext.UserID, ext.GroupID, ext.RoleID, ext.Status,
+        ext.XForwardedFor, ext.XUtmSource, ext.XPhoneNumber, ext.XLabelIDs,
+        ext.XLastTenSignInDate, ext.XTotalDeposit, ext.XTotalWithdraw, ext.XAppID,
+        "Content-Type", "Authorization",
+    }
+    return strings.Join(headers, ", ")
+}
 
 // Middleware to enable CORS
 func enableCORS(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Set CORS headers for all responses
         w.Header().Set("Access-Control-Allow-Origin", "*")
         w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        w.Header().Set("Access-Control-Allow-Headers", getAllCustomHeaders())
+        w.Header().Set("Access-Control-Max-Age", "86400")
 
-        // Handle preflight requests
         if r.Method == http.MethodOptions {
             w.WriteHeader(http.StatusOK)
             return
