@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
+	"crypto/md5"
 	
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
@@ -147,51 +148,79 @@ func (s *Irelia) generateNextQuestion(ctx context.Context, interviewID string, u
 
 // Prepare lip-sync data for a question synchronously
 func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool) error {
-	if question == nil {
-		s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
-		return fmt.Errorf("question is nil, cannot prepare lip sync")
-	}
+    if question == nil {
+        s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
+        return fmt.Errorf("question is nil, cannot prepare lip sync")
+    }
 
-	s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
+    s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
 
-	// Prepare the full string for lip-sync
-	var fullString string
-	if isOutro {
-		fullString = question.Content
-	} else {
-		fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
-	}
+    // Prepare the full string for lip-sync
+    var fullString string
+    var cacheKind string
+    if isOutro {
+        fullString = question.Content
+        cacheKind = "outro"
+    } else if question.QuestionIndex == 1 {
+        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
+        cacheKind = "intro"
+    } else {
+        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
+        cacheKind = ""
+    }
 
-	// Call the Karma service to generate lip-sync data
-	karmaReq := &pb.LipSyncRequest{
-		InterviewId: interview.ID,
-		Content:     fullString,
-		VoiceId:     interview.VoiceID,
-		Speed:       interview.Speed,
-	}
+    // Only cache for intro, position, outro
+    var cacheKey string
+    if cacheKind != "" && s.redis != nil {
+        cacheKey = lipSyncCacheKey(cacheKind, interview.VoiceID, interview.Language, fullString, interview.Speed)
+        // Try to get from cache
+        val, err := s.redis.Get(ctx, cacheKey)
+        if err == nil && val != nil {
+            var cachedResp pb.LipSyncResponse
+            if err := protojson.Unmarshal([]byte(val), &cachedResp); err == nil {
+                question.Audio = cachedResp.Audio
+                question.Lipsync = cachedResp.Lipsync
+                return nil
+            }
+        }
+    }
 
-	karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
-	if err != nil {
-		return fmt.Errorf("failed to generate lip sync: %v", err)
-	}
+    // Call the Karma service to generate lip-sync data
+    karmaReq := &pb.LipSyncRequest{
+        InterviewId: interview.ID,
+        Content:     fullString,
+        VoiceId:     interview.VoiceID,
+        Speed:       interview.Speed,
+    }
 
-	// Update the question with the generated lip-sync data
-	question.Audio = karmaResp.Audio
-	question.Lipsync = karmaResp.Lipsync
+    karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
+    if err != nil {
+        return fmt.Errorf("failed to generate lip sync: %v", err)
+    }
 
-	if isOutro {
-		return nil
-	}
+    // Update the question with the generated lip-sync data
+    question.Audio = karmaResp.Audio
+    question.Lipsync = karmaResp.Lipsync
 
-	// Save the updated question in the database within a transaction
-	if txErr := tx.WithTransaction(ctx, s.repo.Ent, func(ctx context.Context, tx tx.Tx) error {
-		return s.repo.Question.Update(ctx, tx, interview.UserID, question)
-	}); txErr != nil {
-		s.logger.Error("Failed to save question's lip-sync data", zap.Error(txErr))
-		return txErr
-	}
+    // Save to cache if intro/position/outro
+    if cacheKind != "" && s.redis != nil {
+        s.redis.Set(ctx, cacheKey, karmaResp, 1*time.Hour)
+		s.logger.Info("Cached lip sync data", zap.String("cacheKey", cacheKey))
+    }
 
-	return nil
+    if isOutro {
+        return nil
+    }
+
+    // Save the updated question in the database within a transaction
+    if txErr := tx.WithTransaction(ctx, s.repo.Ent, func(ctx context.Context, tx tx.Tx) error {
+        return s.repo.Question.Update(ctx, tx, interview.UserID, question)
+    }); txErr != nil {
+        s.logger.Error("Failed to save question's lip-sync data", zap.Error(txErr))
+        return txErr
+    }
+
+    return nil
 }
 
 // Prepare question data asynchronously
@@ -397,4 +426,17 @@ func (s *Irelia) prepareOutro(language string) string {
         return "Bạn đã hoàn thành buổi phỏng vấn. Bạn có thể kiểm tra kết quả sau vài phút. Hẹn gặp lại bạn trong một buổi phỏng vấn khác!"
     }
     return "You have successfully submitted the interview. You can check out the results in a few minutes. See you in another interview session!"
+}
+
+// Generate a unique cache key for lip-sync data
+func md5sum(s string) string {
+    h := md5.New()
+    h.Write([]byte(s))
+    return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// Generate a cache key for lip-sync data based on kind, voiceID, language, and content
+func lipSyncCacheKey(kind, voiceID, language, content string, speed int32) string {
+    // kind: "intro", "position", "outro"
+    return fmt.Sprintf("lipsync:%s:%s:%s:%d:%x", kind, voiceID, language, speed, md5sum(content))
 }

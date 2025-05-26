@@ -14,6 +14,7 @@ import (
 	sv "irelia/internal/service"
 	ext "irelia/internal/utils/extractor"
 	gen "irelia/internal/utils/generator"
+	"irelia/internal/utils/redis"
 	"irelia/internal/utils/tx"
 	"irelia/pkg/ent"
 	rabbit "irelia/pkg/rabbit/pkg"
@@ -38,10 +39,11 @@ type Irelia struct {
 	rabbit       rabbit.Rabbit
 	logger       *zap.Logger
 	extractor    ext.Extractor
+	redis        redis.Redis
 }
 
 // NewIrelia creates a new gRPC service for Frontend to Irelia communication
-func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger) *Irelia {
+func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger, redis redis.Redis) *Irelia {
 	ext := ext.New()
 	dariusClient := sv.NewDariusClient(logger)
 	karmaClient := sv.NewKarmaClient(logger)
@@ -53,6 +55,7 @@ func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger) *Ireli
 		rabbit:       rabbit,
 		logger:       logger,
 		extractor:    ext,
+		redis:        redis,
 	}
 }
 
@@ -277,9 +280,9 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 	submissionsForKarma := make([]*pb.AnswerData, len(answers))
 	for i, answer := range answers {
 		submissionsForDarius[i] = &pb.AnswerData{
-			Index:       answer.Index,
-			Question:    &answer.Content,
-			Answer:      answer.Answer,
+			Index:    answer.Index,
+			Question: &answer.Content,
+			Answer:   answer.Answer,
 		}
 		submissionsForKarma[i] = &pb.AnswerData{
 			Index:       answer.Index,
@@ -310,16 +313,16 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 
 	go func() {
 		bgCtx := context.Background()
-        dariusResp, err := s.callDariusForScore(bgCtx, dariusReq)
-        if err != nil {
-            s.logger.Error("Failed to score by Darius", zap.Error(err))
-            return
-        }
-        karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
-        if err != nil {
-            s.logger.Error("Failed to score by Karma", zap.Error(err))
-            return
-        }
+		dariusResp, err := s.callDariusForScore(bgCtx, dariusReq)
+		if err != nil {
+			s.logger.Error("Failed to score by Darius", zap.Error(err))
+			return
+		}
+		karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
+		if err != nil {
+			s.logger.Error("Failed to score by Karma", zap.Error(err))
+			return
+		}
 
 		// Update the database with scoring results
 		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_PENDING
@@ -346,20 +349,20 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		}
 
 		// Update the interview with feedback and total score
-		totalLength := len(dariusResp.Skills)+len(karmaResp.Skills)
+		totalLength := len(dariusResp.Skills) + len(karmaResp.Skills)
 		skills := make([]string, 0, totalLength)
 		skillsScore := make([]string, 0, totalLength)
 
-        for _, ele := range dariusResp.Skills {
+		for _, ele := range dariusResp.Skills {
 			skills = append(skills, ele.Skill)
-            skillsScore = append(skillsScore, ele.Score)
+			skillsScore = append(skillsScore, ele.Score)
 		}
 
 		for skill, score := range karmaResp.Skills {
-            skills = append(skills, skill)
-            skillsScore = append(skillsScore, score)
-        }
-		
+			skills = append(skills, skill)
+			skillsScore = append(skillsScore, score)
+		}
+
 		interview.Skills = skills
 		interview.SkillsScore = skillsScore
 		interview.TotalScore = dariusResp.TotalScore
@@ -401,7 +404,6 @@ func (s *Irelia) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) 
 		return nil, fmt.Errorf("failed to retrieve questions: %v", err)
 	}
 
-
 	skillsMap := make(map[string]string, len(entInterview.Skills))
 	if len(entInterview.SkillsScore) == len(entInterview.Skills) {
 		for i, skill := range entInterview.Skills {
@@ -440,19 +442,19 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
 	}
 
 	history := make([]*pb.InterviewSummary, 0, totalCount)
-    for _, entInterview := range interviews {
-        // Ensure all fields are correctly mapped
-        history = append(history, &pb.InterviewSummary{
-            InterviewId: entInterview.ID,
-            Position:    entInterview.Position,
-            Experience:  entInterview.Experience,
-            TotalScore:  entInterview.TotalScore,
-            BaseData: &pb.BaseData{
-                CreatedAt: timestamppb.New(entInterview.CreatedAt),
-                UpdatedAt: timestamppb.New(entInterview.UpdatedAt),
-            },
-        })
-    }
+	for _, entInterview := range interviews {
+		// Ensure all fields are correctly mapped
+		history = append(history, &pb.InterviewSummary{
+			InterviewId: entInterview.ID,
+			Position:    entInterview.Position,
+			Experience:  entInterview.Experience,
+			TotalScore:  entInterview.TotalScore,
+			BaseData: &pb.BaseData{
+				CreatedAt: timestamppb.New(entInterview.CreatedAt),
+				UpdatedAt: timestamppb.New(entInterview.UpdatedAt),
+			},
+		})
+	}
 
 	return &pb.GetInterviewHistoryResponse{
 		Page:       req.PageIndex,

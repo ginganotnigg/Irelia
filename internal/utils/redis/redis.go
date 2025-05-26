@@ -2,13 +2,16 @@ package redis
 
 import (
 	"context"
-	api "irelia/pkg/redis/api"
 	"fmt"
 	"time"
-
 	re "github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"go.uber.org/zap"
+
+	"irelia/pkg/logger/pkg"
+	api "irelia/pkg/redis/api"
 )
 
 type Redis interface {
@@ -22,17 +25,34 @@ type redis struct {
 	namespace string
 }
 
+func ReadConfig() *api.Redis {
+	return &api.Redis{
+		Address:   viper.GetString("redis.address"),
+		Namespace: viper.GetString("redis.namespace"),
+	}
+}
+
 func New(enable bool, cfg *api.Redis) Redis {
 	if !enable {
 		return Dummy()
 	}
 
-	return &redis{
-		redis: re.NewClient(&re.Options{
-			Addr: cfg.Address,
-		}),
-		namespace: cfg.Namespace, // Assuming namespace is part of the config
-	}
+	client := re.NewClient(&re.Options{
+        Addr: cfg.Address,
+    })
+
+    ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+    defer cancel()
+    if err := client.Ping(ctx).Err(); err != nil {
+        logging.Logger(ctx).Error("Failed to connect to Redis", zap.String("address", cfg.Address), zap.Error(err))
+    } else {
+        logging.Logger(ctx).Info("Successfully connected to Redis")
+    }
+
+    return &redis{
+        redis:     client,
+        namespace: cfg.Namespace,
+    }
 }
 
 func (r *redis) withNamespace(key string) string {
