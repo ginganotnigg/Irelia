@@ -225,7 +225,7 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
 
 // Prepare question data asynchronously
 func (s *Irelia) asyncPrepareQuestion(interviewID string, userID uint64, nextQuestionID int32, interview *ent.Interview) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	exists, err := s.repo.Question.Exists(ctx, interviewID, nextQuestionID)
