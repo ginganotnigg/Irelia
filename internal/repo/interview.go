@@ -10,16 +10,15 @@ import (
 
 	pb "irelia/api"
 	"irelia/internal/utils/sort"
-	"irelia/internal/utils/tx"
 	"irelia/pkg/ent"
 	einterview "irelia/pkg/ent/interview"
 	efavorite "irelia/pkg/ent/interviewfavorite"
 )
 
 type IInterview interface {
-    Create(ctx context.Context, tx tx.Tx, ownerId uint64, interview *ent.Interview) error
-    Update(ctx context.Context, tx tx.Tx, ownerId uint64, interview *ent.Interview) error
-    Delete(ctx context.Context, tx tx.Tx, ownerId uint64, interviewID string) error
+    Create(ctx context.Context, ownerId uint64, interview *ent.Interview) error
+    Update(ctx context.Context, ownerId uint64, interview *ent.Interview) error
+    Delete(ctx context.Context, ownerId uint64, interviewID string) error
     Get(ctx context.Context, id string) (*ent.Interview, error)
     GetContext(ctx context.Context, interviewID string) (*pb.StartInterviewRequest, error)
     List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error)
@@ -37,8 +36,8 @@ func NewInterviewRepository(client *ent.Client) IInterview {
 }
 
 // Create creates a new interview in the database
-func (r *EntInterview) Create(ctx context.Context, tx tx.Tx, ownerId uint64, interview *ent.Interview) error {
-    _, err := tx.Client().Interview.
+func (r *EntInterview) Create(ctx context.Context, ownerId uint64, interview *ent.Interview) error {
+    _, err := r.client.Interview.
         Create().
         SetID(interview.ID).
         SetUserID(ownerId).
@@ -61,8 +60,8 @@ func (r *EntInterview) Create(ctx context.Context, tx tx.Tx, ownerId uint64, int
 }
 
 // Update updates an existing interview in the database
-func (r *EntInterview) Update(ctx context.Context, tx tx.Tx, ownerId uint64, interview *ent.Interview) error {
-    _, err := tx.Client().Interview.
+func (r *EntInterview) Update(ctx context.Context, ownerId uint64, interview *ent.Interview) error {
+    _, err := r.client.Interview.
         UpdateOneID(interview.ID).
         SetPosition(interview.Position).
         SetExperience(interview.Experience).
@@ -83,8 +82,8 @@ func (r *EntInterview) Update(ctx context.Context, tx tx.Tx, ownerId uint64, int
     return err
 }
 
-func (r *EntInterview) Delete(ctx context.Context, tx tx.Tx, ownerId uint64, interviewID string) error {
-    _, err := tx.Client().Interview.
+func (r *EntInterview) Delete(ctx context.Context, ownerId uint64, interviewID string) error {
+    _, err := r.client.Interview.
         Delete().
         Where(
             einterview.ID(interviewID),
@@ -251,8 +250,7 @@ func (r *EntInterview) ReceiveScore(ctx context.Context, msg amqp.Delivery) erro
         return err
     }
 
-    return tx.WithTransaction(ctx, r.client, func(ctx context.Context, tx tx.Tx) error {
-		_, err := tx.Client().Interview.
+    _, err = r.client.Interview.
         UpdateOneID(interview.ID).
         SetSkillsScore(interview.SkillsScore).
         SetTotalScore(interview.TotalScore).
@@ -261,6 +259,13 @@ func (r *EntInterview) ReceiveScore(ctx context.Context, msg amqp.Delivery) erro
         SetFinalComment(interview.FinalComment).
         SetStatus(interview.Status).
         Save(ctx)
-        return err
-	})
+    if err != nil {
+        if ent.IsNotFound(err) {
+            return errors.New("interview not found")
+        }
+        if ent.IsConstraintError(err) {
+            return errors.New("interview already scored")
+        }
+    }
+    return err
 }

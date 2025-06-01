@@ -13,7 +13,6 @@ import (
 	
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
-	"irelia/internal/utils/tx"
 	"irelia/pkg/ent"
 )
 
@@ -66,11 +65,27 @@ func (s *Irelia) callKarmaForScore(ctx context.Context, req *pb.ScoreFluencyRequ
     s.logger.Info("Sending request to Karma for fluency scoring", zap.Any("request", req))
 
     // Call the Karma service
-    return s.karmaClient.Score(ctx, req)
+    resp, err := s.karmaClient.Score(ctx, req)
+    if err != nil {
+        return nil, err
+    }
+
+    // Publish the response to RabbitMQ
+    jsonData, err := protojson.Marshal(resp)
+    if err != nil {
+        s.logger.Error("Failed to marshal Karma response to JSON", zap.Error(err))
+        return nil, err
+    }
+    if err := s.rabbit.Publish(ctx, jsonData); err != nil {
+        s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
+        return nil, err
+    }
+
+    return resp, nil
 }
 
 // Generates the next question using Darius and saves it in the database
-func (s *Irelia) generateNextQuestion(ctx context.Context, interviewID string, userID uint64, submissions []*pb.QaPair, remainingQuestions int32, questionIndex int32) (*ent.Question, error) {
+func (s *Irelia) prepareContent(ctx context.Context, interviewID string, submissions []*pb.QaPair, remainingQuestions int32, questionIndex int32) ([]*ent.Question, error) {
 	// Retrieve the interview context
 	interviewContext, err := s.repo.Interview.GetContext(ctx, interviewID)
 	if err != nil {
@@ -121,6 +136,7 @@ func (s *Irelia) generateNextQuestion(ctx context.Context, interviewID string, u
 	}
 
 	// Save the generated question(s) in the database
+    questions := []*ent.Question{}
 	for i, content := range dariusResp.Questions {
 		index := questionIndex + int32(i)
 		if index > interviewContext.TotalQuestions {
@@ -131,26 +147,17 @@ func (s *Irelia) generateNextQuestion(ctx context.Context, interviewID string, u
 			InterviewID:   interviewID,
 			Content:       content,
 		}
-		if txErr := tx.WithTransaction(ctx, s.repo.Ent, func(ctx context.Context, tx tx.Tx) error {
-			fnErr := s.repo.Question.Create(ctx, tx, userID, question)
-			return fnErr
-		}); txErr != nil {
-			s.logger.Error("Failed to save generated question", zap.String("interviewId", interviewID), zap.Int32("questionIndex", question.QuestionIndex), zap.Error(txErr))
-			return nil, txErr
-		}
+		questions = append(questions, question)
 	}
 
-	// Return the first generated question
-	firstQuestion, _ := s.repo.Question.Get(ctx, interviewID, questionIndex)
-
-	return firstQuestion, nil
+	return questions, nil
 }
 
 // Prepare lip-sync data for a question synchronously
-func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool) error {
+func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool) (*ent.Question, error) {
     if question == nil {
         s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
-        return fmt.Errorf("question is nil, cannot prepare lip sync")
+        return nil, fmt.Errorf("question is nil, cannot prepare lip sync")
     }
 
     s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
@@ -180,7 +187,7 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
             if err := protojson.Unmarshal([]byte(val), &cachedResp); err == nil {
                 question.Audio = cachedResp.Audio
                 question.Lipsync = cachedResp.Lipsync
-                return nil
+                return question, nil
             }
         }
     }
@@ -195,7 +202,7 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
 
     karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
     if err != nil {
-        return fmt.Errorf("failed to generate lip sync: %v", err)
+        return nil, fmt.Errorf("failed to generate lip sync: %v", err)
     }
 
     // Update the question with the generated lip-sync data
@@ -208,75 +215,55 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
 		s.logger.Info("Cached lip sync data", zap.String("cacheKey", cacheKey))
     }
 
-    if isOutro {
-        return nil
-    }
-
-    // Save the updated question in the database within a transaction
-    if txErr := tx.WithTransaction(ctx, s.repo.Ent, func(ctx context.Context, tx tx.Tx) error {
-        return s.repo.Question.Update(ctx, tx, interview.UserID, question)
-    }); txErr != nil {
-        s.logger.Error("Failed to save question's lip-sync data", zap.Error(txErr))
-        return txErr
-    }
-
-    return nil
+    return question, nil
 }
 
 // Prepare question data asynchronously
-func (s *Irelia) asyncPrepareQuestion(interviewID string, userID uint64, nextQuestionID int32, interview *ent.Interview) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *Irelia) prepareQuestion(interviewID string, userID uint64, nextQuestionID int32, interview *ent.Interview, questions []*ent.Question) {
+    ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	exists, err := s.repo.Question.Exists(ctx, interviewID, nextQuestionID)
-	if err != nil {
+	if err != nil && !ent.IsNotFound(err) {
 		s.logger.Error("Failed to check if question exists", zap.Error(err))
 		return
 	}
 
 	if exists {
 		s.logger.Info("Question already exists, skipping generation", zap.Int32("questionID", nextQuestionID))
-	} else {
+        return
+	} 
+    
+    if len(questions) == 0 {
 		submissions, err := s.repo.Question.GetQaPair(ctx, interviewID, viper.GetInt("context_qa_length"))
-		if err != nil {
+		if err != nil && !ent.IsNotFound(err) {
 			s.logger.Error("Failed to retrieve submissions for Darius", zap.Error(err))
 			return
 		}
 
 		s.logger.Info("Submissions for Darius", zap.Any("submissions", submissions))
 
-		_, err = s.generateNextQuestion(ctx, interviewID, userID, submissions, interview.TotalQuestions-nextQuestionID+1, nextQuestionID)
+		questions, err = s.prepareContent(ctx, interviewID, submissions, interview.TotalQuestions-nextQuestionID+1, nextQuestionID)
 		if err != nil {
 			s.logger.Error("Failed to generate next question", zap.Error(err))
 			return
 		}
 	}
 
-	nextQuestion, err := s.repo.Question.Get(ctx, interviewID, nextQuestionID)
-	if err != nil {
-		s.logger.Error("Failed to retrieve next question", zap.Error(err))
-		return
-	}
-
-	if nextQuestion != nil {
-		// Prepare lip-sync data for the next question
-		if err := s.prepareLipSync(ctx, nextQuestion, interview, false); err != nil {
-			s.logger.Error("Failed to prepare lip sync for the next question", zap.Error(err))
-		}
-	}
-}
-
-func (s *Irelia) prepareQuestion(interviewID string, userID uint64, questionIndex int32, interview *ent.Interview) {
-	questionsToPrepare := viper.GetInt("questions_to_prepare")
-	for i := 1; i <= questionsToPrepare; i++ {
-		nextQuestionID := int32(questionIndex + 1)
-		if nextQuestionID > interview.TotalQuestions {
-			break
-		}
-
-		go s.asyncPrepareQuestion(interviewID, userID, nextQuestionID, interview)
-		s.logger.Info("Preparing question", zap.String("interviewID", interviewID), zap.Int32("questionID", nextQuestionID))
-	}
+	for i, question := range questions {
+        if nextQuestionID + int32(i) > interview.TotalQuestions {
+            break
+        }
+        questions[i], err = s.prepareLipSync(ctx, question, interview, false)
+        if err != nil {
+            s.logger.Error("Failed to prepare lip sync for question", zap.Error(err))
+        }
+    }
+    if err := s.repo.Question.CreateBulk(ctx, userID, questions); err != nil {
+        s.logger.Error("Failed to save bulk questions", zap.Error(err))
+        return
+    }
+    s.logger.Debug("Prepared question successfully", zap.Any("questions", questions))
 }
 
 func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {

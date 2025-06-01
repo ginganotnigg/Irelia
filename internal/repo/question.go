@@ -4,14 +4,14 @@ import (
 	"context"
 
 	pb "irelia/api"
-	"irelia/internal/utils/tx"
 	"irelia/pkg/ent"
 	equestion "irelia/pkg/ent/question"
 )
 
 type IQuestion interface {
-    Create(ctx context.Context, tx tx.Tx, userId uint64, question *ent.Question) error
-    Update(ctx context.Context, tx tx.Tx, userId uint64, question *ent.Question) error
+    Create(ctx context.Context, userId uint64, question *ent.Question) error
+    CreateBulk(ctx context.Context, userId uint64, questions []*ent.Question) error
+    Update(ctx context.Context, userId uint64, question *ent.Question) error
     Get(ctx context.Context, interviewID string, questionIndex int32) (*ent.Question, error)
     List(ctx context.Context, interviewID string) ([]*pb.AnswerResult, error)
     Exists(ctx context.Context, interviewID string, questionIndex int32) (bool, error)
@@ -28,8 +28,8 @@ func NewQuestionRepository(client *ent.Client) IQuestion {
 }
 
 // Create creates a new question in the database
-func (r *EntQuestion) Create(ctx context.Context, tx tx.Tx, userId uint64, question *ent.Question) error {
-    _, err := tx.Client().Question.
+func (r *EntQuestion) Create(ctx context.Context, userId uint64, question *ent.Question) error {
+    _, err := r.client.Question.
         Create().
         SetInterviewID(question.InterviewID).
         SetQuestionIndex(question.QuestionIndex).
@@ -45,9 +45,30 @@ func (r *EntQuestion) Create(ctx context.Context, tx tx.Tx, userId uint64, quest
     return err
 }
 
+func (r *EntQuestion) CreateBulk(ctx context.Context, userId uint64, questions []*ent.Question) error {
+    builders := make([]*ent.QuestionCreate, len(questions))
+    for i, question := range questions {
+        builders[i] = r.client.Question.
+            Create().
+            SetInterviewID(question.InterviewID).
+            SetQuestionIndex(question.QuestionIndex).
+            SetContent(question.Content).
+            SetAudio(question.Audio).
+            SetLipsync(question.Lipsync).
+            SetAnswer(question.Answer).
+            SetRecordProof(question.RecordProof).
+            SetComment(question.Comment).
+            SetScore(question.Score).
+            SetStatus(pb.QuestionStatus_QUESTION_STATUS_NEW)
+    }
+    
+    _, err := r.client.Question.CreateBulk(builders...).Save(ctx)
+    return err
+}
+
 // Update updates an existing question in the database
-func (r *EntQuestion) Update(ctx context.Context, tx tx.Tx, userId uint64, question *ent.Question) error {
-    _, err := tx.Client().Question.
+func (r *EntQuestion) Update(ctx context.Context, userId uint64, question *ent.Question) error {
+    _, err := r.client.Question.
         Update().
         Where(
             equestion.InterviewID(question.InterviewID),
