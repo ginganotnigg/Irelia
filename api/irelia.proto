@@ -187,6 +187,7 @@ message QuestionResponse {
   string audio = 3;
   LipSyncData lipsync = 4;
   bool is_last_question = 5;
+  bool is_loading = 6;
 }
 
 // 3. Submit Answer
@@ -311,6 +312,7 @@ message FavoriteInterviewRequest {
 message ScoreInterviewRequest {
   string interview_id = 1;
   repeated AnswerData submissions = 2;
+  repeated string skills = 3;
 }
 
 message ScoreFluencyRequest {

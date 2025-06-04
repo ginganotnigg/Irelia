@@ -2,15 +2,17 @@ package features
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync/atomic"
 	"time"
+
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"crypto/md5"
-	
+
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
 	"irelia/pkg/ent"
@@ -18,7 +20,7 @@ import (
 
 /*
 * SERVICE FUNCTIONS
-*/
+ */
 
 func (s *Irelia) callDariusForGenerate(ctx context.Context, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
     // Log the request for debugging
@@ -33,23 +35,7 @@ func (s *Irelia) callDariusForScore(ctx context.Context, req *pb.ScoreInterviewR
     s.logger.Info("Sending request to Darius for scoring", zap.Any("request", req))
 
     // Call the Darius service
-    resp, err := s.dariusClient.Score(ctx, req)
-    if err != nil {
-        return nil, err
-    }
-
-    // Publish the response to RabbitMQ
-    jsonData, err := protojson.Marshal(resp)
-    if err != nil {
-        s.logger.Error("Failed to marshal Darius response to JSON", zap.Error(err))
-        return nil, err
-    }
-    if err := s.rabbit.Publish(ctx, jsonData); err != nil {
-        s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
-        return nil, err
-    }
-
-    return resp, nil
+    return s.dariusClient.Score(ctx, req)
 }
 
 func (s *Irelia) callKarmaForLipSync(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
@@ -65,23 +51,7 @@ func (s *Irelia) callKarmaForScore(ctx context.Context, req *pb.ScoreFluencyRequ
     s.logger.Info("Sending request to Karma for fluency scoring", zap.Any("request", req))
 
     // Call the Karma service
-    resp, err := s.karmaClient.Score(ctx, req)
-    if err != nil {
-        return nil, err
-    }
-
-    // Publish the response to RabbitMQ
-    jsonData, err := protojson.Marshal(resp)
-    if err != nil {
-        s.logger.Error("Failed to marshal Karma response to JSON", zap.Error(err))
-        return nil, err
-    }
-    if err := s.rabbit.Publish(ctx, jsonData); err != nil {
-        s.logger.Error("Failed to send message to RabbitMQ", zap.Error(err))
-        return nil, err
-    }
-
-    return resp, nil
+    return s.karmaClient.Score(ctx, req)
 }
 
 // Generates the next question using Darius and saves it in the database
@@ -218,52 +188,138 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
     return question, nil
 }
 
-// Prepare question data asynchronously
-func (s *Irelia) prepareQuestion(interviewID string, userID uint64, nextQuestionID int32, interview *ent.Interview, questions []*ent.Question) {
-    ctx, cancel := context.WithCancel(context.Background())
+func (s *Irelia) prepareQuestionSafe(job QuestionPreparationJob) {
+	jobKey := fmt.Sprintf("%s:%d", job.InterviewID, job.NextQuestionID)
+
+	// Check if already in progress with better logging
+	s.preparationMutex.Lock()
+	if s.preparationStatus[job.InterviewID] == nil {
+		s.preparationStatus[job.InterviewID] = make(map[int32]bool)
+	}
+	if s.preparationStatus[job.InterviewID][job.NextQuestionID] {
+		s.preparationMutex.Unlock()
+		s.logger.Info("Question preparation already in progress, skipping", zap.String("jobKey", jobKey),
+			zap.String("interviewID", job.InterviewID),
+			zap.Int32("questionID", job.NextQuestionID))
+		return
+	}
+	s.preparationStatus[job.InterviewID][job.NextQuestionID] = true
+	s.preparationMutex.Unlock()
+
+	s.logger.Info("Starting question preparation", zap.String("jobKey", jobKey),
+		zap.String("interviewID", job.InterviewID),
+		zap.Int32("questionID", job.NextQuestionID),
+		zap.Uint64("userID", job.UserID))
+
+	// Cleanup status when done
+	defer func() {
+		s.preparationMutex.Lock()
+		delete(s.preparationStatus[job.InterviewID], job.NextQuestionID)
+		if len(s.preparationStatus[job.InterviewID]) == 0 {
+			delete(s.preparationStatus, job.InterviewID)
+		}
+		s.preparationMutex.Unlock()
+
+		s.logger.Info("Finished question preparation cleanup", zap.String("jobKey", jobKey))
+	}()
+
+	// Add timeout context for the preparation
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	exists, err := s.repo.Question.Exists(ctx, interviewID, nextQuestionID)
+	if err := s.prepareQuestion(ctx, job); err != nil {
+		s.logger.Error("Question preparation failed", zap.String("jobKey", jobKey),
+			zap.Error(err))
+	} else {
+		s.logger.Info("Question preparation completed successfully", zap.String("jobKey", jobKey))
+	}
+}
+
+func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob) error {
+	// Check if question already exists
+	exists, err := s.repo.Question.Exists(ctx, job.InterviewID, job.NextQuestionID)
 	if err != nil && !ent.IsNotFound(err) {
-		s.logger.Error("Failed to check if question exists", zap.Error(err))
-		return
+		s.logger.Error("Failed to check if question exists", zap.String("interviewID", job.InterviewID),
+			zap.Int32("questionID", job.NextQuestionID),
+			zap.Error(err))
+		return fmt.Errorf("failed to check question existence: %w", err)
 	}
 
 	if exists {
-		s.logger.Info("Question already exists, skipping generation", zap.Int32("questionID", nextQuestionID))
-        return
-	} 
-    
-    if len(questions) == 0 {
-		submissions, err := s.repo.Question.GetQaPair(ctx, interviewID, viper.GetInt("context_qa_length"))
+		s.logger.Info("Question already exists, skipping generation", zap.String("interviewID", job.InterviewID),
+			zap.Int32("questionID", job.NextQuestionID))
+		return nil
+	}
+
+	questions := job.Questions
+	if len(questions) == 0 {
+		s.logger.Debug("No pre-prepared questions, generating from context", zap.String("interviewID", job.InterviewID),
+			zap.Int32("questionID", job.NextQuestionID))
+
+		submissions, err := s.repo.Question.GetQaPair(ctx, job.InterviewID, viper.GetInt("context_qa_length"))
 		if err != nil && !ent.IsNotFound(err) {
-			s.logger.Error("Failed to retrieve submissions for Darius", zap.Error(err))
-			return
+			s.logger.Error("Failed to retrieve submissions for Darius", zap.String("interviewID", job.InterviewID),
+				zap.Error(err))
+			return fmt.Errorf("failed to retrieve submissions: %w", err)
 		}
 
-		s.logger.Info("Submissions for Darius", zap.Any("submissions", submissions))
+		s.logger.Debug("Retrieved submissions for question generation", zap.String("interviewID", job.InterviewID),
+			zap.Int("submissionCount", len(submissions)))
 
-		questions, err = s.prepareContent(ctx, interviewID, submissions, interview.TotalQuestions-nextQuestionID+1, nextQuestionID)
+		questions, err = s.prepareContent(ctx, job.InterviewID, submissions,
+			job.Interview.TotalQuestions-job.NextQuestionID+1, job.NextQuestionID)
 		if err != nil {
-			s.logger.Error("Failed to generate next question", zap.Error(err))
-			return
+			s.logger.Error("Failed to generate questions from content", zap.String("interviewID", job.InterviewID),
+				zap.Error(err))
+			return fmt.Errorf("failed to generate questions: %w", err)
+		}
+
+		s.logger.Debug("Generated questions from content", zap.String("interviewID", job.InterviewID),
+			zap.Int("questionCount", len(questions)))
+	} else {
+		s.logger.Debug("Using pre-prepared questions", zap.String("interviewID", job.InterviewID),
+			zap.Int("questionCount", len(questions)))
+	}
+
+	// Prepare lip sync for each question
+	for i, question := range questions {
+		if job.NextQuestionID+int32(i) > job.Interview.TotalQuestions {
+			s.logger.Debug("Reached total question limit, breaking", zap.String("interviewID", job.InterviewID),
+				zap.Int32("currentQuestionID", job.NextQuestionID+int32(i)),
+				zap.Int32("totalQuestions", job.Interview.TotalQuestions))
+			break
+		}
+
+		s.logger.Debug("Preparing lip sync for question", zap.String("interviewID", job.InterviewID),
+			zap.Int32("questionID", job.NextQuestionID+int32(i)))
+
+		questions[i], err = s.prepareLipSync(ctx, question, job.Interview, false)
+		if err != nil {
+			s.logger.Error("Failed to prepare lip sync for question", zap.String("interviewID", job.InterviewID),
+				zap.Int32("questionID", job.NextQuestionID+int32(i)),
+				zap.Error(err))
+			// Don't return error here, continue with other questions
+		}
+		if err := s.repo.Question.Create(ctx, job.UserID, question); err != nil {
+			s.logger.Error("Failed to save questions", zap.String("interviewID", job.InterviewID),
+				zap.Int32("questionID", job.NextQuestionID+int32(i)),
+				zap.Error(err))
+			return fmt.Errorf("failed to save questions: %w", err)
 		}
 	}
 
-	for i, question := range questions {
-        if nextQuestionID + int32(i) > interview.TotalQuestions {
-            break
-        }
-        questions[i], err = s.prepareLipSync(ctx, question, interview, false)
-        if err != nil {
-            s.logger.Error("Failed to prepare lip sync for question", zap.Error(err))
-        }
+	s.logger.Info("Successfully prepared and saved questions", zap.String("interviewID", job.InterviewID),
+		zap.Int32("startingQuestionID", job.NextQuestionID),
+		zap.Int("questionCount", len(questions)))
+
+	return nil
+}
+
+func (s *Irelia) ensureQuestionWorkerPool() {
+    if atomic.LoadInt64(&s.questionWorkerPool.activeWorkers) == 0 {
+        s.logger.Warn("All question workers have exited, restarting worker pool")
+        s.questionWorkerPool.Start(s)
     }
-    if err := s.repo.Question.CreateBulk(ctx, userID, questions); err != nil {
-        s.logger.Error("Failed to save bulk questions", zap.Error(err))
-        return
-    }
-    s.logger.Debug("Prepared question successfully", zap.Any("questions", questions))
 }
 
 func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {
@@ -408,6 +464,7 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
 	return fullString
 }
 
+// Prepare the outro message based on the language
 func (s *Irelia) prepareOutro(language string) string {
     if language == "Vietnamese" {
         return "Bạn đã hoàn thành buổi phỏng vấn. Bạn có thể kiểm tra kết quả sau vài phút. Hẹn gặp lại bạn trong một buổi phỏng vấn khác!"

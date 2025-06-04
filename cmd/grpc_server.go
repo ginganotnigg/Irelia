@@ -64,8 +64,8 @@ func startGRPC(logger *zap.Logger) {
     repository := repo.New(entClient)
 
 	// Start consuming messages from RabbitMQ
-	go rabbitMQ.Consume(context.Background(), repository.Interview.ReceiveScore)
 	irelia := feat.New(repository, rabbitMQ, logger, redis)
+	// go rabbitMQ.Consume(context.Background(), irelia.ReceiveScore)
 
 
 	// Start gRPC server

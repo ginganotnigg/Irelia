@@ -3,11 +3,13 @@ package features
 import (
 	"context"
 	"fmt"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"sync"
 
 	pb "irelia/api"
 	repo "irelia/internal/repo"
@@ -32,13 +34,16 @@ type IIrelia interface {
 // Irelia implements the InterviewService gRPC interface for Frontend to Irelia communication
 type Irelia struct {
 	pb.UnimplementedIreliaServer
-	dariusClient sv.DariusClient
-	karmaClient  sv.KarmaClient
-	repo         repo.Repository
-	rabbit       rabbit.Rabbit
-	logger       *zap.Logger
-	extractor    ext.Extractor
-	redis        redis.Redis
+	dariusClient       sv.DariusClient
+	karmaClient        sv.KarmaClient
+	repo               repo.Repository
+	rabbit             rabbit.Rabbit
+	logger             *zap.Logger
+	extractor          ext.Extractor
+	redis              redis.Redis
+	questionWorkerPool *QuestionWorkerPool
+	preparationMutex   sync.RWMutex
+	preparationStatus  map[string]map[int32]bool
 }
 
 // NewIrelia creates a new gRPC service for Frontend to Irelia communication
@@ -47,7 +52,7 @@ func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger, redis 
 	dariusClient := sv.NewDariusClient(logger)
 	karmaClient := sv.NewKarmaClient(logger)
 
-	return &Irelia{
+	irelia := &Irelia{
 		dariusClient: *dariusClient,
 		karmaClient:  *karmaClient,
 		repo:         *repo,
@@ -56,8 +61,17 @@ func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger, redis 
 		extractor:    ext,
 		redis:        redis,
 	}
+	size := viper.GetInt("worker.size")
+	maxTasksPerWorker := viper.GetInt("worker.max_tasks_per_worker")
+	maxIdleTime := viper.GetInt("worker.max_idle_time")
+	maxTaskWaitTime := viper.GetInt("worker.max_task_wait_time")
+	irelia.questionWorkerPool = NewQuestionWorkerPool(size, maxTasksPerWorker, maxIdleTime, maxTaskWaitTime)
+	irelia.preparationStatus = make(map[string]map[int32]bool)
+	irelia.questionWorkerPool.Start(irelia)
+	return irelia
 }
 
+// StartInterview initializes a new interview session
 func (s *Irelia) StartInterview(ctx context.Context, req *pb.StartInterviewRequest) (*pb.StartInterviewResponse, error) {
 	userID, err := s.getUserID(ctx)
 	if err != nil {
@@ -121,7 +135,34 @@ func (s *Irelia) StartInterview(ctx context.Context, req *pb.StartInterviewReque
 
 	// Retrieve the first question
 	var firstIndex int32 = 1
-	s.prepareQuestion(interviewID, userID, firstIndex, interview, questions)
+	job := QuestionPreparationJob{
+		InterviewID:    interviewID,
+		UserID:         userID,
+		NextQuestionID: firstIndex,
+		Interview:      interview,
+		Questions:      questions,
+	}
+
+	if err := s.prepareQuestion(ctx, job); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to prepare initial questions: %v", err)
+	}
+
+	// Prepare additional questions based on configuration
+	nextJob := QuestionPreparationJob{
+		InterviewID:    interviewID,
+		UserID:         userID,
+		NextQuestionID: int32(len(questions) + 1),
+		Interview:      interview,
+		Questions:      nil,
+	}
+
+	s.ensureQuestionWorkerPool()
+	enqueued := s.questionWorkerPool.EnqueueJob(s.logger, nextJob)
+	if !enqueued {
+		s.logger.Warn("Failed to enqueue question preparation job",
+			zap.String("interviewID", nextJob.InterviewID),
+			zap.Int32("nextQuestionID", nextJob.NextQuestionID))
+	}
 
 	return &pb.StartInterviewResponse{
 		InterviewId: interview.ID,
@@ -188,24 +229,73 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 	exists, err := s.repo.Question.Exists(ctx, req.InterviewId, req.QuestionIndex)
 	if err != nil {
 		s.logger.Error("Failed to check if question exists", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to retrieve next question: %v", err)
+		return &pb.QuestionResponse{
+			QuestionId:     req.QuestionIndex,
+			Content:        "",
+			Audio:          "",
+			Lipsync:        nil,
+			IsLastQuestion: false,
+			IsLoading:      true,
+		}, nil
 	}
 	if !exists {
-		s.logger.Error("Next question not found", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
+		s.logger.Warn("Next question not found", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
+		// const questionWaitTimeout = 10 * time.Second
+		// const questionPollInterval = 500 * time.Millisecond
+		// waitCtx, cancel := context.WithTimeout(ctx, questionWaitTimeout)
+		// defer cancel()
+		// for {
+		//     select {
+		//     case <-waitCtx.Done():
+		//         s.logger.Error("Timeout waiting for question to be prepared", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex))
+		//         return nil, status.Errorf(codes.DeadlineExceeded, "Timeout waiting for question to be prepared")
+		//     default:
+		//         // Try to get the question
+		//         _, err := s.repo.Question.Get(ctx, req.InterviewId, req.QuestionIndex)
+		//         if ent.IsNotSingular(err) {
+		//             s.logger.Error("Multiple questions found for the same index", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex))
+		//             return nil, status.Errorf(codes.Internal, "Multiple questions found for the same index")
+		//         }
+		//         time.Sleep(questionPollInterval)
+		//     }
+		// }
 	}
-	
+
 	// Retrieve the next question from the database
 	question, err := s.repo.Question.Get(ctx, req.InterviewId, req.QuestionIndex)
 	if err != nil {
 		s.logger.Error("Failed to retrieve next question", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to retrieve next question: %v", err)
+		return &pb.QuestionResponse{
+			QuestionId:     req.QuestionIndex,
+			Content:        "",
+			Audio:          "",
+			Lipsync:        nil,
+			IsLastQuestion: false,
+			IsLoading:      true,
+		}, nil
 	}
-
-	// Prepare additional questions based on configuration
-	s.prepareQuestion(req.InterviewId, userID, req.QuestionIndex + 1, interview, nil)
 
 	// Determine if this is the last question
 	isLastQuestion := req.QuestionIndex == interview.TotalQuestions
+
+	if !isLastQuestion {
+		// Prepare additional questions based on configuration
+		job := QuestionPreparationJob{
+			InterviewID:    req.InterviewId,
+			UserID:         userID,
+			NextQuestionID: req.QuestionIndex + 1,
+			Interview:      interview,
+			Questions:      nil,
+		}
+
+		s.ensureQuestionWorkerPool()
+		enqueued := s.questionWorkerPool.EnqueueJob(s.logger, job)
+		if !enqueued {
+			s.logger.Warn("Failed to enqueue question preparation job",
+				zap.String("interviewID", job.InterviewID),
+				zap.Int32("nextQuestionID", job.NextQuestionID))
+		}
+	}
 
 	// Return the next question
 	return &pb.QuestionResponse{
@@ -214,6 +304,7 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 		Audio:          question.Audio,
 		Lipsync:        question.Lipsync,
 		IsLastQuestion: isLastQuestion,
+		IsLoading:      false,
 	}, nil
 }
 
@@ -248,6 +339,16 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		return nil, status.Errorf(codes.Internal, "Failed to save interview status: %v", err)
 	}
 
+	outro := &ent.Question{
+		Content: s.prepareOutro(interview.Language),
+	}
+
+	// Prepare lip-sync data for the outro
+	if outro, err = s.prepareLipSync(ctx, outro, interview, true); err != nil {
+		s.logger.Error("Failed to prepare lip sync for the outro", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "Failed to prepare lip sync for the outro: %v", err)
+	}
+
 	// Get submissions from answers
 	submissionsForDarius := make([]*pb.AnswerData, len(answers))
 	submissionsForKarma := make([]*pb.AnswerData, len(answers))
@@ -264,89 +365,82 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		}
 	}
 
-	// Get ScoreInterviewRequest
+	// Get both request
 	dariusReq := &pb.ScoreInterviewRequest{
 		InterviewId: interview.ID,
 		Submissions: submissionsForDarius,
+		Skills:      interview.Skills,
 	}
 	karmaReq := &pb.ScoreFluencyRequest{
 		InterviewId: interview.ID,
 		Submissions: submissionsForKarma,
 	}
 
-	outro := &ent.Question{
-		Content: s.prepareOutro(interview.Language),
-	}
-
-	// Prepare lip-sync data for the outro
-	if outro, err = s.prepareLipSync(ctx, outro, interview, true); err != nil {
-		s.logger.Error("Failed to prepare lip sync for the outro", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to prepare lip sync for the outro: %v", err)
-	}
-
-	bgCtx := context.Background()
-	dariusResp, err := s.callDariusForScore(bgCtx, dariusReq)
-	if err != nil {
-		s.logger.Error("Failed to score by Darius", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to score by Darius: %v", err)
-	}
-	karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
-	if err != nil {
-		s.logger.Error("Failed to score by Karma", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to score by Karma: %v", err)
-	}
-
-	// Update the database with scoring results
-	interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_PENDING
-	for _, submission := range dariusResp.Result {
-		question, err := s.repo.Question.Get(bgCtx, req.InterviewId, submission.Index)
+	go func() {
+		bgCtx := context.Background()
+		dariusResp, err := s.callDariusForScore(bgCtx, dariusReq)
 		if err != nil {
-			s.logger.Error("Failed to retrieve question", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
-			return nil, status.Errorf(codes.NotFound, "Question not found: %v", err)
+			s.logger.Error("Failed to score by Darius", zap.Error(err))
+			return
 		}
-		question.Comment = submission.Comment
-		question.Score = submission.Score
-		if question.Score == "" {
-			question.Status = pb.QuestionStatus_QUESTION_STATUS_FAILED
-		} else {
-			question.Status = pb.QuestionStatus_QUESTION_STATUS_RATED
-		}
-		// Store question update list
-		err = s.repo.Question.Update(bgCtx, userID, question)
+		karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
 		if err != nil {
-			s.logger.Error("Failed to update question with score", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
-			return nil, status.Errorf(codes.Internal, "Failed to update question with score: %v", err)
+			s.logger.Error("Failed to score by Karma", zap.Error(err))
+			return
 		}
-	}
 
-	// Update the interview with feedback and total score
-	totalLength := len(dariusResp.Skills) + len(karmaResp.Skills)
-	skills := make([]string, 0, totalLength)
-	skillsScore := make([]string, 0, totalLength)
+		// Update the database with scoring results
+		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_PENDING
+		for _, submission := range dariusResp.Result {
+			question, err := s.repo.Question.Get(bgCtx, req.InterviewId, submission.Index)
+			if err != nil {
+				s.logger.Error("Failed to retrieve question", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
+				return
+			}
+			question.Comment = submission.Comment
+			question.Score = submission.Score
+			if question.Score == "" {
+				question.Status = pb.QuestionStatus_QUESTION_STATUS_FAILED
+			} else {
+				question.Status = pb.QuestionStatus_QUESTION_STATUS_RATED
+			}
+			// Store question update list
+			err = s.repo.Question.Update(bgCtx, userID, question)
+			if err != nil {
+				s.logger.Error("Failed to update question with score", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
+				return
+			}
+		}
 
-	for _, ele := range dariusResp.Skills {
-		skills = append(skills, ele.Skill)
-		skillsScore = append(skillsScore, ele.Score)
-	}
+		// Update the interview with feedback and total score
+		totalLength := len(dariusResp.Skills) + len(karmaResp.Skills)
+		skills := make([]string, 0, totalLength)
+		skillsScore := make([]string, 0, totalLength)
 
-	for skill, score := range karmaResp.Skills {
-		skills = append(skills, skill)
-		skillsScore = append(skillsScore, score)
-	}
+		for _, ele := range dariusResp.Skills {
+			skills = append(skills, ele.Skill)
+			skillsScore = append(skillsScore, ele.Score)
+		}
 
-	interview.Skills = skills
-	interview.SkillsScore = skillsScore
-	interview.TotalScore = dariusResp.TotalScore
-	interview.PositiveFeedback = dariusResp.PositiveFeedback
-	interview.ActionableFeedback = dariusResp.ActionableFeedback + " " + karmaResp.ActionableFeedback
-	interview.FinalComment = dariusResp.FinalComment
-	interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED
+		for skill, score := range karmaResp.Skills {
+			skills = append(skills, skill)
+			skillsScore = append(skillsScore, score)
+		}
 
-	if err := s.repo.Interview.Update(bgCtx, userID, interview); err != nil {
-		s.logger.Error("Failed to save interview feedback", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "Failed to save interview feedback: %v", err)
-	}
-	s.logger.Info("Interview feedback saved successfully", zap.String("interviewId", interview.ID))
+		interview.Skills = skills
+		interview.SkillsScore = skillsScore
+		interview.TotalScore = dariusResp.TotalScore
+		interview.PositiveFeedback = dariusResp.PositiveFeedback
+		interview.ActionableFeedback = dariusResp.ActionableFeedback + " " + karmaResp.ActionableFeedback
+		interview.FinalComment = dariusResp.FinalComment
+		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED
+
+		if err := s.repo.Interview.Update(bgCtx, userID, interview); err != nil {
+			s.logger.Error("Failed to save interview feedback", zap.Error(err))
+			return
+		}
+		s.logger.Info("Interview feedback saved successfully", zap.String("interviewId", interview.ID))
+	}()
 
 	return &pb.SubmitInterviewResponse{
 		Outro: &pb.LipSyncResponse{
@@ -431,6 +525,7 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
 	}, nil
 }
 
+// FavoriteInterview marks an interview as favorite
 func (s *Irelia) FavoriteInterview(ctx context.Context, req *pb.FavoriteInterviewRequest) (*emptypb.Empty, error) {
 	userID, err := s.getUserID(ctx)
 	if err != nil {

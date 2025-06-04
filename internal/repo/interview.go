@@ -5,8 +5,6 @@ import (
 	"errors"
 
 	"entgo.io/ent/dialect/sql"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	pb "irelia/api"
 	"irelia/internal/utils/sort"
@@ -24,7 +22,6 @@ type IInterview interface {
     List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error)
     Exists(ctx context.Context, interviewID string) (bool, error)
     Favorite(ctx context.Context, ownerId uint64, interviewID string) error
-    ReceiveScore(ctx context.Context, msg amqp.Delivery) error
 }
 
 type EntInterview struct {
@@ -233,39 +230,5 @@ func (r *EntInterview) Favorite(ctx context.Context, ownerId uint64, interviewID
         SetUserID(ownerId).
         SetInterviewID(interviewID).
         Save(ctx)
-    return err
-}
-
-func (r *EntInterview) ReceiveScore(ctx context.Context, msg amqp.Delivery) error {
-    var score pb.ScoreInterviewRequest
-    if err := protojson.Unmarshal(msg.Body, &score); err != nil {
-        return err
-    }
-
-    interview, err := r.client.Interview.
-        Query().
-        Where(einterview.ID(score.InterviewId)).
-        Only(ctx)
-    if err != nil {
-        return err
-    }
-
-    _, err = r.client.Interview.
-        UpdateOneID(interview.ID).
-        SetSkillsScore(interview.SkillsScore).
-        SetTotalScore(interview.TotalScore).
-        SetPositiveFeedback(interview.PositiveFeedback).
-        SetActionableFeedback(interview.ActionableFeedback).
-        SetFinalComment(interview.FinalComment).
-        SetStatus(interview.Status).
-        Save(ctx)
-    if err != nil {
-        if ent.IsNotFound(err) {
-            return errors.New("interview not found")
-        }
-        if ent.IsConstraintError(err) {
-            return errors.New("interview already scored")
-        }
-    }
     return err
 }

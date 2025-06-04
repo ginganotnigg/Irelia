@@ -44,6 +44,12 @@ redis:
   address: ${REDIS_ADDRESS}
   namespace: ${REDIS_NAMESPACE}
 
+worker:
+  size: 10
+  max_tasks_per_worker: 20
+  max_idle_time: 3600
+  max_task_wait_time: 10
+
 questions_to_prepare: 1
 
 context_qa_length: 5
