@@ -171,6 +171,20 @@ func (ic *InterviewCreate) SetTotalScore(is *irelia.TotalScore) *InterviewCreate
 	return ic
 }
 
+// SetOverallScore sets the "overall_score" field.
+func (ic *InterviewCreate) SetOverallScore(f float64) *InterviewCreate {
+	ic.mutation.SetOverallScore(f)
+	return ic
+}
+
+// SetNillableOverallScore sets the "overall_score" field if the given value is not nil.
+func (ic *InterviewCreate) SetNillableOverallScore(f *float64) *InterviewCreate {
+	if f != nil {
+		ic.SetOverallScore(*f)
+	}
+	return ic
+}
+
 // SetPositiveFeedback sets the "positive_feedback" field.
 func (ic *InterviewCreate) SetPositiveFeedback(s string) *InterviewCreate {
 	ic.mutation.SetPositiveFeedback(s)
@@ -314,6 +328,10 @@ func (ic *InterviewCreate) defaults() {
 		v := interview.DefaultRemainingQuestions
 		ic.mutation.SetRemainingQuestions(v)
 	}
+	if _, ok := ic.mutation.OverallScore(); !ok {
+		v := interview.DefaultOverallScore
+		ic.mutation.SetOverallScore(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -354,6 +372,9 @@ func (ic *InterviewCreate) check() error {
 	}
 	if _, ok := ic.mutation.RemainingQuestions(); !ok {
 		return &ValidationError{Name: "remaining_questions", err: errors.New(`ent: missing required field "Interview.remaining_questions"`)}
+	}
+	if _, ok := ic.mutation.OverallScore(); !ok {
+		return &ValidationError{Name: "overall_score", err: errors.New(`ent: missing required field "Interview.overall_score"`)}
 	}
 	if _, ok := ic.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Interview.status"`)}
@@ -448,6 +469,10 @@ func (ic *InterviewCreate) createSpec() (*Interview, *sqlgraph.CreateSpec) {
 	if value, ok := ic.mutation.TotalScore(); ok {
 		_spec.SetField(interview.FieldTotalScore, field.TypeJSON, value)
 		_node.TotalScore = value
+	}
+	if value, ok := ic.mutation.OverallScore(); ok {
+		_spec.SetField(interview.FieldOverallScore, field.TypeFloat64, value)
+		_node.OverallScore = value
 	}
 	if value, ok := ic.mutation.PositiveFeedback(); ok {
 		_spec.SetField(interview.FieldPositiveFeedback, field.TypeString, value)

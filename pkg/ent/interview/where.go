@@ -121,6 +121,11 @@ func RemainingQuestions(v int32) predicate.Interview {
 	return predicate.Interview(sql.FieldEQ(FieldRemainingQuestions, v))
 }
 
+// OverallScore applies equality check predicate on the "overall_score" field. It's identical to OverallScoreEQ.
+func OverallScore(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldEQ(FieldOverallScore, v))
+}
+
 // PositiveFeedback applies equality check predicate on the "positive_feedback" field. It's identical to PositiveFeedbackEQ.
 func PositiveFeedback(v string) predicate.Interview {
 	return predicate.Interview(sql.FieldEQ(FieldPositiveFeedback, v))
@@ -700,6 +705,46 @@ func TotalScoreIsNil() predicate.Interview {
 // TotalScoreNotNil applies the NotNil predicate on the "total_score" field.
 func TotalScoreNotNil() predicate.Interview {
 	return predicate.Interview(sql.FieldNotNull(FieldTotalScore))
+}
+
+// OverallScoreEQ applies the EQ predicate on the "overall_score" field.
+func OverallScoreEQ(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldEQ(FieldOverallScore, v))
+}
+
+// OverallScoreNEQ applies the NEQ predicate on the "overall_score" field.
+func OverallScoreNEQ(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldNEQ(FieldOverallScore, v))
+}
+
+// OverallScoreIn applies the In predicate on the "overall_score" field.
+func OverallScoreIn(vs ...float64) predicate.Interview {
+	return predicate.Interview(sql.FieldIn(FieldOverallScore, vs...))
+}
+
+// OverallScoreNotIn applies the NotIn predicate on the "overall_score" field.
+func OverallScoreNotIn(vs ...float64) predicate.Interview {
+	return predicate.Interview(sql.FieldNotIn(FieldOverallScore, vs...))
+}
+
+// OverallScoreGT applies the GT predicate on the "overall_score" field.
+func OverallScoreGT(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldGT(FieldOverallScore, v))
+}
+
+// OverallScoreGTE applies the GTE predicate on the "overall_score" field.
+func OverallScoreGTE(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldGTE(FieldOverallScore, v))
+}
+
+// OverallScoreLT applies the LT predicate on the "overall_score" field.
+func OverallScoreLT(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldLT(FieldOverallScore, v))
+}
+
+// OverallScoreLTE applies the LTE predicate on the "overall_score" field.
+func OverallScoreLTE(v float64) predicate.Interview {
+	return predicate.Interview(sql.FieldLTE(FieldOverallScore, v))
 }
 
 // PositiveFeedbackEQ applies the EQ predicate on the "positive_feedback" field.

@@ -25,6 +25,7 @@ var (
 		{Name: "total_questions", Type: field.TypeInt32, Default: 10},
 		{Name: "remaining_questions", Type: field.TypeInt32, Default: 10},
 		{Name: "total_score", Type: field.TypeJSON, Nullable: true},
+		{Name: "overall_score", Type: field.TypeFloat64, Default: 0},
 		{Name: "positive_feedback", Type: field.TypeString, Nullable: true},
 		{Name: "actionable_feedback", Type: field.TypeString, Nullable: true},
 		{Name: "final_comment", Type: field.TypeString, Nullable: true},

@@ -53,6 +53,8 @@ require (
 	github.com/ebitengine/purego v0.6.0-alpha.5 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
+	github.com/ggicci/httpin v0.20.0 // indirect
+	github.com/ggicci/owl v0.8.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.10.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

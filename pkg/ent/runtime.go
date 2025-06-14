@@ -53,6 +53,10 @@ func init() {
 	interviewDescRemainingQuestions := interviewFields[11].Descriptor()
 	// interview.DefaultRemainingQuestions holds the default value on creation for the remaining_questions field.
 	interview.DefaultRemainingQuestions = interviewDescRemainingQuestions.Default.(int32)
+	// interviewDescOverallScore is the schema descriptor for overall_score field.
+	interviewDescOverallScore := interviewFields[13].Descriptor()
+	// interview.DefaultOverallScore holds the default value on creation for the overall_score field.
+	interview.DefaultOverallScore = interviewDescOverallScore.Default.(float64)
 	interviewfavoriteMixin := schema.InterviewFavorite{}.Mixin()
 	interviewfavoriteMixinFields0 := interviewfavoriteMixin[0].Fields()
 	_ = interviewfavoriteMixinFields0

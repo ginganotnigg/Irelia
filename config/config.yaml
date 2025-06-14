@@ -52,4 +52,6 @@ worker:
 
 questions_to_prepare: 1
 
+page_size: 10
+
 context_qa_length: 5

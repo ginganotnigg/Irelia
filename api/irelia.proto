@@ -98,10 +98,14 @@ enum QuestionStatus {
   QUESTION_STATUS_RATED = 5;
 }
 
-enum SortType {
-  SORT_TYPE_UNKNOWN = 0;
-  SORT_TYPE_ASC = 1;
-  SORT_TYPE_DESC = 2;
+enum InterviewSortMethod {
+  SORT_METHOD_UNSPECIFIED = 0;
+  RECENTLY_RATED = 1;
+  LEAST_RECENTLY_RATED = 2;
+  MOST_TOTAL_QUESTIONS = 3;
+  FEWEST_TOTAL_QUESTIONS = 4;
+  MAX_SCORE = 5;
+  MIN_SCORE = 6;
 }
 
 enum BulbasaurRole {
@@ -118,11 +122,6 @@ message BaseData {
   google.protobuf.Timestamp updated_at = 2;
 }
 
-message SortMethod {
-  string name = 1;
-  SortType type = 2;
-}
-
 // Database
 message Interview {
   string id = 1;
@@ -137,11 +136,12 @@ message Interview {
   int32 total_questions = 10;
   int32 remaining_questions = 11;
   TotalScore total_score = 12;
-  string positive_feedback = 13;
-  string actionable_feedback = 14;
-  string final_comment = 15;
-  InterviewStatus status = 16;
-  BaseData base_data = 17;
+  float overall_score = 13;
+  string positive_feedback = 14;
+  string actionable_feedback = 15;
+  string final_comment = 16;
+  InterviewStatus status = 17;
+  BaseData base_data = 18;
 }
 
 message Question {
@@ -220,13 +220,11 @@ message AnswerData {
 
 // 5. Get Interview History
 message GetInterviewHistoryRequest {
-  int32 page_index = 1;
-  int32 page_size = 2;
-  optional string search_content = 3;
-  optional bool is_favorite = 4;
-  repeated SortMethod sort = 5;
-  google.protobuf.Timestamp from = 6;
-  google.protobuf.Timestamp to = 7;
+  int32 page = 1;
+  InterviewSortMethod sort = 2;
+  optional string query = 3;
+  optional bool en = 4;
+  optional bool fvr = 5;
 }
 
 message GetInterviewHistoryResponse {

@@ -70,7 +70,6 @@ func (r *rabbit) Consume(ctx context.Context, consumeFunction func(ctx context.C
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	logging.Logger(ctx).Info("Connected to RabbitMQ")
 
@@ -78,7 +77,6 @@ func (r *rabbit) Consume(ctx context.Context, consumeFunction func(ctx context.C
 	if err != nil {
 		return err
 	}
-	defer ch.Close()
 
 	q, err := ch.QueueDeclare(r.comsumeQueue, true, false, false, false, nil)
 	if err != nil {
@@ -92,12 +90,27 @@ func (r *rabbit) Consume(ctx context.Context, consumeFunction func(ctx context.C
 
 	sem := make(chan struct{}, r.maxConsumer)
 
-	for msg := range msgs {
-		sem <- struct{}{}
-		go r.processMessage(ctx, msg, sem, consumeFunction)
-	}
+    done := make(chan struct{})
+    go func() {
+        for msg := range msgs {
+            sem <- struct{}{}
+            go r.processMessage(ctx, msg, sem, consumeFunction)
+        }
+        close(done)
+    }()
 
-	return nil
+    select {
+    case <-ctx.Done():
+        // Clean up
+        ch.Close()
+        conn.Close()
+        return nil
+    case <-done:
+        // msgs channel closed
+        ch.Close()
+        conn.Close()
+        return nil
+    }
 }
 
 func (r *rabbit) Publish(ctx context.Context, body []byte) error {

@@ -42,6 +42,8 @@ const (
 	FieldRemainingQuestions = "remaining_questions"
 	// FieldTotalScore holds the string denoting the total_score field in the database.
 	FieldTotalScore = "total_score"
+	// FieldOverallScore holds the string denoting the overall_score field in the database.
+	FieldOverallScore = "overall_score"
 	// FieldPositiveFeedback holds the string denoting the positive_feedback field in the database.
 	FieldPositiveFeedback = "positive_feedback"
 	// FieldActionableFeedback holds the string denoting the actionable_feedback field in the database.
@@ -89,6 +91,7 @@ var Columns = []string{
 	FieldTotalQuestions,
 	FieldRemainingQuestions,
 	FieldTotalScore,
+	FieldOverallScore,
 	FieldPositiveFeedback,
 	FieldActionableFeedback,
 	FieldFinalComment,
@@ -124,6 +127,8 @@ var (
 	DefaultTotalQuestions int32
 	// DefaultRemainingQuestions holds the default value on creation for the "remaining_questions" field.
 	DefaultRemainingQuestions int32
+	// DefaultOverallScore holds the default value on creation for the "overall_score" field.
+	DefaultOverallScore float64
 )
 
 // OrderOption defines the ordering options for the Interview queries.
@@ -187,6 +192,11 @@ func ByTotalQuestions(opts ...sql.OrderTermOption) OrderOption {
 // ByRemainingQuestions orders the results by the remaining_questions field.
 func ByRemainingQuestions(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRemainingQuestions, opts...).ToFunc()
+}
+
+// ByOverallScore orders the results by the overall_score field.
+func ByOverallScore(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOverallScore, opts...).ToFunc()
 }
 
 // ByPositiveFeedback orders the results by the positive_feedback field.

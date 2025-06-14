@@ -58,6 +58,8 @@ type InterviewMutation struct {
 	remaining_questions    *int32
 	addremaining_questions *int32
 	total_score            **irelia.TotalScore
+	overall_score          *float64
+	addoverall_score       *float64
 	positive_feedback      *string
 	actionable_feedback    *string
 	final_comment          *string
@@ -860,6 +862,62 @@ func (m *InterviewMutation) ResetTotalScore() {
 	delete(m.clearedFields, interview.FieldTotalScore)
 }
 
+// SetOverallScore sets the "overall_score" field.
+func (m *InterviewMutation) SetOverallScore(f float64) {
+	m.overall_score = &f
+	m.addoverall_score = nil
+}
+
+// OverallScore returns the value of the "overall_score" field in the mutation.
+func (m *InterviewMutation) OverallScore() (r float64, exists bool) {
+	v := m.overall_score
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOverallScore returns the old "overall_score" field's value of the Interview entity.
+// If the Interview object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InterviewMutation) OldOverallScore(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOverallScore is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOverallScore requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOverallScore: %w", err)
+	}
+	return oldValue.OverallScore, nil
+}
+
+// AddOverallScore adds f to the "overall_score" field.
+func (m *InterviewMutation) AddOverallScore(f float64) {
+	if m.addoverall_score != nil {
+		*m.addoverall_score += f
+	} else {
+		m.addoverall_score = &f
+	}
+}
+
+// AddedOverallScore returns the value that was added to the "overall_score" field in this mutation.
+func (m *InterviewMutation) AddedOverallScore() (r float64, exists bool) {
+	v := m.addoverall_score
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOverallScore resets all changes to the "overall_score" field.
+func (m *InterviewMutation) ResetOverallScore() {
+	m.overall_score = nil
+	m.addoverall_score = nil
+}
+
 // SetPositiveFeedback sets the "positive_feedback" field.
 func (m *InterviewMutation) SetPositiveFeedback(s string) {
 	m.positive_feedback = &s
@@ -1205,7 +1263,7 @@ func (m *InterviewMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *InterviewMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 19)
 	if m.created_at != nil {
 		fields = append(fields, interview.FieldCreatedAt)
 	}
@@ -1247,6 +1305,9 @@ func (m *InterviewMutation) Fields() []string {
 	}
 	if m.total_score != nil {
 		fields = append(fields, interview.FieldTotalScore)
+	}
+	if m.overall_score != nil {
+		fields = append(fields, interview.FieldOverallScore)
 	}
 	if m.positive_feedback != nil {
 		fields = append(fields, interview.FieldPositiveFeedback)
@@ -1296,6 +1357,8 @@ func (m *InterviewMutation) Field(name string) (ent.Value, bool) {
 		return m.RemainingQuestions()
 	case interview.FieldTotalScore:
 		return m.TotalScore()
+	case interview.FieldOverallScore:
+		return m.OverallScore()
 	case interview.FieldPositiveFeedback:
 		return m.PositiveFeedback()
 	case interview.FieldActionableFeedback:
@@ -1341,6 +1404,8 @@ func (m *InterviewMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldRemainingQuestions(ctx)
 	case interview.FieldTotalScore:
 		return m.OldTotalScore(ctx)
+	case interview.FieldOverallScore:
+		return m.OldOverallScore(ctx)
 	case interview.FieldPositiveFeedback:
 		return m.OldPositiveFeedback(ctx)
 	case interview.FieldActionableFeedback:
@@ -1456,6 +1521,13 @@ func (m *InterviewMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetTotalScore(v)
 		return nil
+	case interview.FieldOverallScore:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOverallScore(v)
+		return nil
 	case interview.FieldPositiveFeedback:
 		v, ok := value.(string)
 		if !ok {
@@ -1504,6 +1576,9 @@ func (m *InterviewMutation) AddedFields() []string {
 	if m.addremaining_questions != nil {
 		fields = append(fields, interview.FieldRemainingQuestions)
 	}
+	if m.addoverall_score != nil {
+		fields = append(fields, interview.FieldOverallScore)
+	}
 	if m.addstatus != nil {
 		fields = append(fields, interview.FieldStatus)
 	}
@@ -1523,6 +1598,8 @@ func (m *InterviewMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedTotalQuestions()
 	case interview.FieldRemainingQuestions:
 		return m.AddedRemainingQuestions()
+	case interview.FieldOverallScore:
+		return m.AddedOverallScore()
 	case interview.FieldStatus:
 		return m.AddedStatus()
 	}
@@ -1561,6 +1638,13 @@ func (m *InterviewMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRemainingQuestions(v)
+		return nil
+	case interview.FieldOverallScore:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOverallScore(v)
 		return nil
 	case interview.FieldStatus:
 		v, ok := value.(irelia.InterviewStatus)
@@ -1688,6 +1772,9 @@ func (m *InterviewMutation) ResetField(name string) error {
 		return nil
 	case interview.FieldTotalScore:
 		m.ResetTotalScore()
+		return nil
+	case interview.FieldOverallScore:
+		m.ResetOverallScore()
 		return nil
 	case interview.FieldPositiveFeedback:
 		m.ResetPositiveFeedback()

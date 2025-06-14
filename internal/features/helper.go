@@ -472,6 +472,31 @@ func (s *Irelia) prepareOutro(language string) string {
     return "You have successfully submitted the interview. You can check out the results in a few minutes. See you in another interview session!"
 }
 
+// Calculate the overall score based on the total score data
+func getOverallScore(scoreData *pb.TotalScore) float64 {
+    // Grade weights (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0)
+    weights := map[string]float64{
+        "A": 4.0,
+        "B": 3.0,
+        "C": 2.0,
+        "D": 1.0,
+        "F": 0.0,
+    }
+    
+    totalQuestions := scoreData.A + scoreData.B + scoreData.C + scoreData.D + scoreData.F
+    if totalQuestions == 0 {
+        return 0.0
+    }
+    
+    weightedSum := float64(scoreData.A)*weights["A"] + 
+                   float64(scoreData.B)*weights["B"] + 
+                   float64(scoreData.C)*weights["C"] + 
+                   float64(scoreData.D)*weights["D"] + 
+                   float64(scoreData.F)*weights["F"]
+    
+    return weightedSum / float64(totalQuestions)
+}
+
 // Generate a unique cache key for lip-sync data
 func md5sum(s string) string {
     h := md5.New()

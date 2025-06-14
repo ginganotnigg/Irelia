@@ -232,6 +232,27 @@ func (iu *InterviewUpdate) ClearTotalScore() *InterviewUpdate {
 	return iu
 }
 
+// SetOverallScore sets the "overall_score" field.
+func (iu *InterviewUpdate) SetOverallScore(f float64) *InterviewUpdate {
+	iu.mutation.ResetOverallScore()
+	iu.mutation.SetOverallScore(f)
+	return iu
+}
+
+// SetNillableOverallScore sets the "overall_score" field if the given value is not nil.
+func (iu *InterviewUpdate) SetNillableOverallScore(f *float64) *InterviewUpdate {
+	if f != nil {
+		iu.SetOverallScore(*f)
+	}
+	return iu
+}
+
+// AddOverallScore adds f to the "overall_score" field.
+func (iu *InterviewUpdate) AddOverallScore(f float64) *InterviewUpdate {
+	iu.mutation.AddOverallScore(f)
+	return iu
+}
+
 // SetPositiveFeedback sets the "positive_feedback" field.
 func (iu *InterviewUpdate) SetPositiveFeedback(s string) *InterviewUpdate {
 	iu.mutation.SetPositiveFeedback(s)
@@ -528,6 +549,12 @@ func (iu *InterviewUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if iu.mutation.TotalScoreCleared() {
 		_spec.ClearField(interview.FieldTotalScore, field.TypeJSON)
+	}
+	if value, ok := iu.mutation.OverallScore(); ok {
+		_spec.SetField(interview.FieldOverallScore, field.TypeFloat64, value)
+	}
+	if value, ok := iu.mutation.AddedOverallScore(); ok {
+		_spec.AddField(interview.FieldOverallScore, field.TypeFloat64, value)
 	}
 	if value, ok := iu.mutation.PositiveFeedback(); ok {
 		_spec.SetField(interview.FieldPositiveFeedback, field.TypeString, value)
@@ -864,6 +891,27 @@ func (iuo *InterviewUpdateOne) ClearTotalScore() *InterviewUpdateOne {
 	return iuo
 }
 
+// SetOverallScore sets the "overall_score" field.
+func (iuo *InterviewUpdateOne) SetOverallScore(f float64) *InterviewUpdateOne {
+	iuo.mutation.ResetOverallScore()
+	iuo.mutation.SetOverallScore(f)
+	return iuo
+}
+
+// SetNillableOverallScore sets the "overall_score" field if the given value is not nil.
+func (iuo *InterviewUpdateOne) SetNillableOverallScore(f *float64) *InterviewUpdateOne {
+	if f != nil {
+		iuo.SetOverallScore(*f)
+	}
+	return iuo
+}
+
+// AddOverallScore adds f to the "overall_score" field.
+func (iuo *InterviewUpdateOne) AddOverallScore(f float64) *InterviewUpdateOne {
+	iuo.mutation.AddOverallScore(f)
+	return iuo
+}
+
 // SetPositiveFeedback sets the "positive_feedback" field.
 func (iuo *InterviewUpdateOne) SetPositiveFeedback(s string) *InterviewUpdateOne {
 	iuo.mutation.SetPositiveFeedback(s)
@@ -1190,6 +1238,12 @@ func (iuo *InterviewUpdateOne) sqlSave(ctx context.Context) (_node *Interview, e
 	}
 	if iuo.mutation.TotalScoreCleared() {
 		_spec.ClearField(interview.FieldTotalScore, field.TypeJSON)
+	}
+	if value, ok := iuo.mutation.OverallScore(); ok {
+		_spec.SetField(interview.FieldOverallScore, field.TypeFloat64, value)
+	}
+	if value, ok := iuo.mutation.AddedOverallScore(); ok {
+		_spec.AddField(interview.FieldOverallScore, field.TypeFloat64, value)
 	}
 	if value, ok := iuo.mutation.PositiveFeedback(); ok {
 		_spec.SetField(interview.FieldPositiveFeedback, field.TypeString, value)

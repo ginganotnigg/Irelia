@@ -35,6 +35,7 @@ func (Interview) Fields() []ent.Field {
         field.Int32("total_questions").Default(10),
         field.Int32("remaining_questions").Default(10),
         field.JSON("total_score", &pb.TotalScore{}).Optional(),
+        field.Float("overall_score").Default(0),
         field.String("positive_feedback").Optional(),
         field.String("actionable_feedback").Optional(),
         field.String("final_comment").Optional(),

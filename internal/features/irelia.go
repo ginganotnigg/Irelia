@@ -434,6 +434,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		interview.ActionableFeedback = dariusResp.ActionableFeedback + " " + karmaResp.ActionableFeedback
 		interview.FinalComment = dariusResp.FinalComment
 		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED
+		interview.OverallScore = getOverallScore(interview.TotalScore)
 
 		if err := s.repo.Interview.Update(bgCtx, userID, interview); err != nil {
 			s.logger.Error("Failed to save interview feedback", zap.Error(err))
@@ -496,7 +497,7 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
 		convertedUserId = &temp
 	}
 
-	interviews, totalCount, totalPages, err := s.repo.Interview.List(ctx, req, convertedUserId)
+	interviews, totalCount, size, totalPages, err := s.repo.Interview.List(ctx, req, convertedUserId)
 	if err != nil {
 		s.logger.Error("Failed to retrieve interview history", zap.Error(err))
 		return nil, fmt.Errorf("failed to retrieve interview history: %v", err)
@@ -518,8 +519,8 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
 	}
 
 	return &pb.GetInterviewHistoryResponse{
-		Page:       req.PageIndex,
-		PerPage:    req.PageSize,
+		Page:       req.Page,
+		PerPage:    size,
 		TotalPages: totalPages,
 		Interviews: history,
 	}, nil

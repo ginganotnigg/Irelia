@@ -2,13 +2,13 @@ package repo
 
 import (
 	"context"
-	"errors"
-
-	"entgo.io/ent/dialect/sql"
+    "github.com/spf13/viper"
+    "entgo.io/ent/dialect/sql"
+    "entgo.io/ent/dialect/sql/sqljson"
 
 	pb "irelia/api"
-	"irelia/internal/utils/sort"
 	"irelia/pkg/ent"
+    "irelia/pkg/ent/predicate"
 	einterview "irelia/pkg/ent/interview"
 	efavorite "irelia/pkg/ent/interviewfavorite"
 )
@@ -19,7 +19,7 @@ type IInterview interface {
     Delete(ctx context.Context, ownerId uint64, interviewID string) error
     Get(ctx context.Context, id string) (*ent.Interview, error)
     GetContext(ctx context.Context, interviewID string) (*pb.StartInterviewRequest, error)
-    List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error)
+    List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, int32, error)
     Exists(ctx context.Context, interviewID string) (bool, error)
     Favorite(ctx context.Context, ownerId uint64, interviewID string) error
 }
@@ -48,6 +48,7 @@ func (r *EntInterview) Create(ctx context.Context, ownerId uint64, interview *en
         SetTotalQuestions(interview.TotalQuestions).
         SetRemainingQuestions(interview.RemainingQuestions).
         SetTotalScore(interview.TotalScore).
+        SetOverallScore(interview.OverallScore).
         SetPositiveFeedback(interview.PositiveFeedback).
         SetActionableFeedback(interview.ActionableFeedback).
         SetFinalComment(interview.FinalComment).
@@ -71,6 +72,7 @@ func (r *EntInterview) Update(ctx context.Context, ownerId uint64, interview *en
         SetTotalQuestions(interview.TotalQuestions).
         SetRemainingQuestions(interview.RemainingQuestions).
         SetTotalScore(interview.TotalScore).
+        SetOverallScore(interview.OverallScore).
         SetPositiveFeedback(interview.PositiveFeedback).
         SetActionableFeedback(interview.ActionableFeedback).
         SetFinalComment(interview.FinalComment).
@@ -123,56 +125,69 @@ func (r *EntInterview) GetContext(ctx context.Context, interviewID string) (*pb.
     }, nil
 }
 
+func SkillsContains(skill string) predicate.Interview {
+    return predicate.Interview(func(s *sql.Selector) {
+        s.Where(sqljson.StringContains(einterview.FieldSkills, skill))
+    })
+}
+
 // List retrieves a list of completed interviews with search, paging, and ordering
-func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, error) {
-    if req.PageIndex == 0 {
-        req.PageIndex = 1 // Default to the first page
+func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequest, userId *uint64) ([]*ent.Interview, int32, int32, int32, error) {
+    if req.Page == 0 {
+        req.Page = 1
     }
-    if req.PageSize == 0 {
-        req.PageSize = 10 // Default to 10 items per page
-    }
+
+    size := viper.GetInt("page_size")
+    
     query := r.client.Interview.Query().Where(einterview.StatusEQ(pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED))
 
-    if (req.From == nil && req.To != nil) || (req.From != nil && req.To == nil) {
-		return nil, 0, 0, errors.New("invalid time")
-	} else if req.From != nil {
-		if req.From.AsTime().After(req.To.AsTime()) {
-			return nil, 0, 0, errors.New("invalid time")
-		}
-		query = query.Where(einterview.CreatedAtGTE(req.From.AsTime()), einterview.CreatedAtLTE(req.To.AsTime()))
-	}
-
-    if req.SearchContent != nil {
+    if req.Query != nil {
         query = query.Where(einterview.Or(
-            einterview.PositionContainsFold(*req.SearchContent),
-            einterview.ExperienceContainsFold(*req.SearchContent),
-            einterview.LanguageContainsFold(*req.SearchContent),
-            einterview.VoiceIDContainsFold(*req.SearchContent),
+            einterview.PositionContainsFold(*req.Query),
+            einterview.ExperienceContainsFold(*req.Query),
+            SkillsContains(*req.Query),
         ))
     }
 
     if userId != nil {
-        if req.IsFavorite != nil && *req.IsFavorite {
+        if req.Fvr != nil && *req.Fvr {
 			query = query.Where(einterview.HasFavoritesWith(efavorite.UserID(*userId)))
 		}
     }
-
-    sorts, err := sort.GetSort(einterview.Columns, einterview.Table, req.Sort)
-    if err != nil {
-        return nil, 0, 0, err
+    if req.En != nil {
+        if *req.En {
+            query = query.Where(einterview.LanguageEQ("English"))
+        } else {
+            query = query.Where(einterview.LanguageNEQ("English"))
+        }
     }
+
+    switch req.Sort {
+    case pb.InterviewSortMethod_RECENTLY_RATED:
+        query = query.Order(ent.Desc(einterview.FieldUpdatedAt))
+    case pb.InterviewSortMethod_LEAST_RECENTLY_RATED:
+        query = query.Order(ent.Asc(einterview.FieldUpdatedAt))
+    case pb.InterviewSortMethod_MOST_TOTAL_QUESTIONS:
+        query = query.Order(ent.Desc(einterview.FieldTotalQuestions))
+    case pb.InterviewSortMethod_FEWEST_TOTAL_QUESTIONS:
+        query = query.Order(ent.Asc(einterview.FieldTotalQuestions))
+    case pb.InterviewSortMethod_MAX_SCORE:
+        query = query.Order(ent.Desc(einterview.FieldOverallScore))
+    case pb.InterviewSortMethod_MIN_SCORE:
+        query = query.Order(ent.Asc(einterview.FieldOverallScore))
+    default:
+        query = query.Order(ent.Desc(einterview.FieldUpdatedAt))
+    }
+
     totalCount, _ := query.Count(ctx)
     if totalCount == 0 {
-        return nil, 0, 0, nil
+        return nil, 0, 0, 0, nil
     }
-    totalPage := (int32(totalCount)-1)/req.PageSize + 1
+    totalPage := int32((totalCount-1)/size + 1)
 
     interviews, err := query.
-        Modify(func(s *sql.Selector) {
-            s.OrderBy(sorts...)
-        }).
-        Offset(int(req.PageIndex-1) * int(req.PageSize)).
-        Limit(int(req.PageSize)).
+        Offset(int(req.Page-1) * size).
+        Limit(size).
         Select(
             einterview.FieldID,
             einterview.FieldPosition,
@@ -183,10 +198,10 @@ func (r *EntInterview) List(ctx context.Context, req *pb.GetInterviewHistoryRequ
         ).
         All(ctx)
     if err != nil {
-        return nil, 0, 0, err
+        return nil, 0, 0, 0, err
     }
 
-    return interviews, int32(totalCount), totalPage, nil
+    return interviews, int32(totalCount), int32(size), totalPage, nil
 }
 
 // Exists checks if an interview exists in the database

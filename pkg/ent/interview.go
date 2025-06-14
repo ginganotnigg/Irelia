@@ -47,6 +47,8 @@ type Interview struct {
 	RemainingQuestions int32 `json:"remaining_questions,omitempty"`
 	// TotalScore holds the value of the "total_score" field.
 	TotalScore *irelia.TotalScore `json:"total_score,omitempty"`
+	// OverallScore holds the value of the "overall_score" field.
+	OverallScore float64 `json:"overall_score,omitempty"`
 	// PositiveFeedback holds the value of the "positive_feedback" field.
 	PositiveFeedback string `json:"positive_feedback,omitempty"`
 	// ActionableFeedback holds the value of the "actionable_feedback" field.
@@ -99,6 +101,8 @@ func (*Interview) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case interview.FieldSkipCode:
 			values[i] = new(sql.NullBool)
+		case interview.FieldOverallScore:
+			values[i] = new(sql.NullFloat64)
 		case interview.FieldUserID, interview.FieldSpeed, interview.FieldTotalQuestions, interview.FieldRemainingQuestions, interview.FieldStatus:
 			values[i] = new(sql.NullInt64)
 		case interview.FieldID, interview.FieldPosition, interview.FieldExperience, interview.FieldLanguage, interview.FieldVoiceID, interview.FieldPositiveFeedback, interview.FieldActionableFeedback, interview.FieldFinalComment:
@@ -216,6 +220,12 @@ func (i *Interview) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field total_score: %w", err)
 				}
 			}
+		case interview.FieldOverallScore:
+			if value, ok := values[j].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field overall_score", values[j])
+			} else if value.Valid {
+				i.OverallScore = value.Float64
+			}
 		case interview.FieldPositiveFeedback:
 			if value, ok := values[j].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field positive_feedback", values[j])
@@ -327,6 +337,9 @@ func (i *Interview) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("total_score=")
 	builder.WriteString(fmt.Sprintf("%v", i.TotalScore))
+	builder.WriteString(", ")
+	builder.WriteString("overall_score=")
+	builder.WriteString(fmt.Sprintf("%v", i.OverallScore))
 	builder.WriteString(", ")
 	builder.WriteString("positive_feedback=")
 	builder.WriteString(i.PositiveFeedback)
