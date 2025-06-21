@@ -184,11 +184,11 @@ func (s *Irelia) SubmitAnswer(ctx context.Context, req *pb.SubmitAnswerRequest) 
 	}
 
 	if question.Status != pb.QuestionStatus_QUESTION_STATUS_NEW {
-		s.logger.Error("Question already answered", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", req.Index))
+		s.logger.Warn("Question already answered", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", req.Index))
 		return &pb.SubmitAnswerResponse{Message: "Question already answered"}, nil
 	}
 	if req.Answer == "" {
-		s.logger.Error("Answer is empty", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", req.Index))
+		s.logger.Warn("Answer is empty", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", req.Index))
 		return &pb.SubmitAnswerResponse{Message: "Answer is empty"}, nil
 	}
 
@@ -197,7 +197,7 @@ func (s *Irelia) SubmitAnswer(ctx context.Context, req *pb.SubmitAnswerRequest) 
 	question.Status = pb.QuestionStatus_QUESTION_STATUS_ANSWERED
 
 	if err := s.repo.Question.Update(ctx, userID, question); err != nil {
-		s.logger.Error("Failed to save answer", zap.Error(err))
+		s.logger.Warn("Failed to save answer", zap.Error(err))
 		return &pb.SubmitAnswerResponse{Message: "Failed to save answer"}, nil
 	}
 
@@ -393,9 +393,16 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_PENDING
 		for _, submission := range dariusResp.Result {
 			question, err := s.repo.Question.Get(bgCtx, req.InterviewId, submission.Index)
+			if ent.IsNotSingular(err) {
+				s.logger.Error("Multiple questions found for the same index, skipping update",
+					zap.String("interviewId", req.InterviewId),
+					zap.Int32("questionIndex", submission.Index),
+					zap.Error(err))
+				continue
+			}
 			if err != nil {
 				s.logger.Error("Failed to retrieve question", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
-				return
+				continue
 			}
 			question.Comment = submission.Comment
 			question.Score = submission.Score
@@ -408,7 +415,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 			err = s.repo.Question.Update(bgCtx, userID, question)
 			if err != nil {
 				s.logger.Error("Failed to update question with score", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", submission.Index), zap.Error(err))
-				return
+				continue
 			}
 		}
 

@@ -244,13 +244,12 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 			zap.Error(err))
 		return fmt.Errorf("failed to check question existence: %w", err)
 	}
-
 	if exists {
 		s.logger.Info("Question already exists, skipping generation", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID))
 		return nil
 	}
-
+	
 	questions := job.Questions
 	if len(questions) == 0 {
 		s.logger.Debug("No pre-prepared questions, generating from context", zap.String("interviewID", job.InterviewID),
@@ -284,27 +283,31 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 	// Prepare lip sync for each question
 	for i, question := range questions {
 		if job.NextQuestionID+int32(i) > job.Interview.TotalQuestions {
-			s.logger.Debug("Reached total question limit, breaking", zap.String("interviewID", job.InterviewID),
-				zap.Int32("currentQuestionID", job.NextQuestionID+int32(i)),
-				zap.Int32("totalQuestions", job.Interview.TotalQuestions))
 			break
 		}
 
 		s.logger.Debug("Preparing lip sync for question", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID+int32(i)))
 
+		var err error
 		questions[i], err = s.prepareLipSync(ctx, question, job.Interview, false)
 		if err != nil {
 			s.logger.Error("Failed to prepare lip sync for question", zap.String("interviewID", job.InterviewID),
 				zap.Int32("questionID", job.NextQuestionID+int32(i)),
 				zap.Error(err))
-			// Don't return error here, continue with other questions
+			continue
 		}
 		if err := s.repo.Question.Create(ctx, job.UserID, question); err != nil {
+			if ent.IsConstraintError(err) {
+				s.logger.Warn("Duplicate question detected, skipping creation",
+					zap.String("interviewID", job.InterviewID),
+					zap.Int32("questionID", job.NextQuestionID+int32(i)))
+				continue
+			}
 			s.logger.Error("Failed to save questions", zap.String("interviewID", job.InterviewID),
 				zap.Int32("questionID", job.NextQuestionID+int32(i)),
 				zap.Error(err))
-			return fmt.Errorf("failed to save questions: %w", err)
+			continue
 		}
 	}
 

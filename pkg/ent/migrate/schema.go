@@ -88,6 +88,13 @@ var (
 				OnDelete:   schema.Cascade,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "question_interview_id_question_index",
+				Unique:  true,
+				Columns: []*schema.Column{QuestionsColumns[12], QuestionsColumns[3]},
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{

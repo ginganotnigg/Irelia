@@ -6,6 +6,7 @@ import (
     "entgo.io/ent"
     "entgo.io/ent/schema/edge"
     "entgo.io/ent/schema/field"
+    "entgo.io/ent/schema/index"
 )
 
 // Question holds the schema definition for the Question entity.
@@ -17,6 +18,12 @@ func (Question) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		Base{},
 	}
+}
+
+func (Question) Indexes() []ent.Index {
+    return []ent.Index{
+        index.Fields("interview_id", "question_index").Unique(),
+    }
 }
 
 func (Question) Fields() []ent.Field {
