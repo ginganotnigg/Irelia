@@ -378,7 +378,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 
 	go func() {
 		bgCtx := context.Background()
-		dariusResp, err := s.callDariusForScore(bgCtx, dariusReq)
+		dariusResp, err := s.callDariusForScore(bgCtx, userID, dariusReq)
 		if err != nil {
 			s.logger.Error("Failed to score by Darius", zap.Error(err))
 			return

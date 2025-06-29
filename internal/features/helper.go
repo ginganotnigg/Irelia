@@ -22,20 +22,20 @@ import (
 * SERVICE FUNCTIONS
  */
 
-func (s *Irelia) callDariusForGenerate(ctx context.Context, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
+func (s *Irelia) callDariusForGenerate(ctx context.Context, userID uint64, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
     // Log the request for debugging
     s.logger.Info("Sending request to Darius for question generation", zap.Any("request", req))
 
     // Call the Darius service
-    return s.dariusClient.Generate(ctx, req)
+    return s.dariusClient.Generate(ctx, fmt.Sprintf("%d", userID), req)
 }
 
-func (s *Irelia) callDariusForScore(ctx context.Context, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
+func (s *Irelia) callDariusForScore(ctx context.Context, userID uint64, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
     // Log the request for debugging
     s.logger.Info("Sending request to Darius for scoring", zap.Any("request", req))
 
     // Call the Darius service
-    return s.dariusClient.Score(ctx, req)
+    return s.dariusClient.Score(ctx, fmt.Sprintf("%d", userID), req)
 }
 
 func (s *Irelia) callKarmaForLipSync(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
@@ -55,7 +55,7 @@ func (s *Irelia) callKarmaForScore(ctx context.Context, req *pb.ScoreFluencyRequ
 }
 
 // Generates the next question using Darius and saves it in the database
-func (s *Irelia) prepareContent(ctx context.Context, interviewID string, submissions []*pb.QaPair, remainingQuestions int32, questionIndex int32) ([]*ent.Question, error) {
+func (s *Irelia) prepareContent(ctx context.Context, userID uint64, interviewID string, submissions []*pb.QaPair, remainingQuestions int32, questionIndex int32) ([]*ent.Question, error) {
 	// Retrieve the interview context
 	interviewContext, err := s.repo.Interview.GetContext(ctx, interviewID)
 	if err != nil {
@@ -94,7 +94,7 @@ func (s *Irelia) prepareContent(ctx context.Context, interviewID string, submiss
 
 	var dariusResp *pb.NextQuestionResponse
 
-	dariusResp, err = s.callDariusForGenerate(context.Background(), dariusReq)
+	dariusResp, err = s.callDariusForGenerate(context.Background(), userID, dariusReq)
 	if err != nil {
 		s.logger.Error("Failed to generate questions", zap.String("interviewId", interviewID))
 		return nil, fmt.Errorf("failed to generate questions: %v", err)
@@ -265,7 +265,7 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 		s.logger.Debug("Retrieved submissions for question generation", zap.String("interviewID", job.InterviewID),
 			zap.Int("submissionCount", len(submissions)))
 
-		questions, err = s.prepareContent(ctx, job.InterviewID, submissions,
+		questions, err = s.prepareContent(ctx, job.UserID, job.InterviewID, submissions,
 			job.Interview.TotalQuestions-job.NextQuestionID+1, job.NextQuestionID)
 		if err != nil {
 			s.logger.Error("Failed to generate questions from content", zap.String("interviewID", job.InterviewID),

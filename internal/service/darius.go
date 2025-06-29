@@ -29,7 +29,7 @@ func NewDariusClient(logger *zap.Logger) *DariusClient {
 }
 
 // Generate sends a REST API request to the Darius service to generate questions
-func (d *DariusClient) Generate(ctx context.Context, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
+func (d *DariusClient) Generate(ctx context.Context, userId string, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
     dariusURL := viper.GetString("darius.genurl")
 
     // Marshal the Protobuf request to JSON
@@ -44,6 +44,7 @@ func (d *DariusClient) Generate(ctx context.Context, req *pb.NextQuestionRequest
         return nil, status.Errorf(codes.Internal, "Failed to create HTTP request: %v", err)
     }
     httpReq.Header.Set("Content-Type", "application/json")
+    httpReq.Header.Set("x-user-id", userId)
 
     // Send the HTTP request
     resp, err := d.client.Do(httpReq)
@@ -73,7 +74,7 @@ func (d *DariusClient) Generate(ctx context.Context, req *pb.NextQuestionRequest
 }
 
 // Score sends a REST API request to the Darius service to score answers
-func (d *DariusClient) Score(ctx context.Context, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
+func (d *DariusClient) Score(ctx context.Context, userId string, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
     dariusURL := viper.GetString("darius.scrurl")
 
     // Marshal the Protobuf request to JSON
@@ -88,6 +89,7 @@ func (d *DariusClient) Score(ctx context.Context, req *pb.ScoreInterviewRequest)
         return nil, status.Errorf(codes.Internal, "Failed to create HTTP request: %v", err)
     }
     httpReq.Header.Set("Content-Type", "application/json")
+    httpReq.Header.Set("x-user-id", userId)
 
     // Send the HTTP request
     resp, err := d.client.Do(httpReq)
