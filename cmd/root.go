@@ -28,6 +28,8 @@ func Execute() {
     viper.BindEnv("db.auth_method", "DB_AUTH_METHOD")
     viper.BindEnv("rabbitmq.username", "RABBITMQ_USERNAME")
     viper.BindEnv("rabbitmq.password", "RABBITMQ_PASSWORD")
+    viper.BindEnv("redis.address", "REDIS_ADDRESS")
+    viper.BindEnv("redis.namespace", "REDIS_NAMESPACE")
 
     viper.SetConfigFile(*configPath)
     if err := viper.ReadInConfig(); err != nil {
@@ -43,6 +45,7 @@ func Execute() {
     }
     logger := logging.Logger(context.TODO())
 
+    startSSE()
 	go startGRPC(logger)
 	startGateway(logger)
 }

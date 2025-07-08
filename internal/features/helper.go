@@ -15,6 +15,7 @@ import (
 
 	pb "irelia/api"
 	chk "irelia/internal/utils/checker"
+	"irelia/internal/utils/sse"
 	"irelia/pkg/ent"
 )
 
@@ -124,7 +125,7 @@ func (s *Irelia) prepareContent(ctx context.Context, userID uint64, interviewID 
 }
 
 // Prepare lip-sync data for a question synchronously
-func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool) (*ent.Question, error) {
+func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool, isTimeout bool) (*ent.Question, error) {
     if question == nil {
         s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
         return nil, fmt.Errorf("question is nil, cannot prepare lip sync")
@@ -139,10 +140,10 @@ func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, int
         fullString = question.Content
         cacheKind = "outro"
     } else if question.QuestionIndex == 1 {
-        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
+        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
         cacheKind = "intro"
     } else {
-        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language)
+        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
         cacheKind = ""
     }
 
@@ -251,6 +252,7 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 	}
 	
 	questions := job.Questions
+	var isTimeout bool
 	if len(questions) == 0 {
 		s.logger.Debug("No pre-prepared questions, generating from context", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID))
@@ -261,6 +263,13 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 				zap.Error(err))
 			return fmt.Errorf("failed to retrieve submissions: %w", err)
 		}
+		// Check if the last question already answered
+		if len(submissions) > 0 && submissions[len(submissions)-1].Answer == "" {
+			isTimeout = true
+		} else {
+			isTimeout = false
+		}
+
 
 		s.logger.Debug("Retrieved submissions for question generation", zap.String("interviewID", job.InterviewID),
 			zap.Int("submissionCount", len(submissions)))
@@ -290,7 +299,7 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 			zap.Int32("questionID", job.NextQuestionID+int32(i)))
 
 		var err error
-		questions[i], err = s.prepareLipSync(ctx, question, job.Interview, false)
+		questions[i], err = s.prepareLipSync(ctx, question, job.Interview, false, isTimeout)
 		if err != nil {
 			s.logger.Error("Failed to prepare lip sync for question", zap.String("interviewID", job.InterviewID),
 				zap.Int32("questionID", job.NextQuestionID+int32(i)),
@@ -342,6 +351,77 @@ func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {
 * HELPER FUNCTIONS
 */
 
+// handleQuestionTimeout handles timeout for a question
+func (s *Irelia) handleQuestionTimeout(interviewID string, questionIndex int32, userID uint64) {
+	s.logger.Info("Handling question timeout", 
+		zap.String("interviewID", interviewID),
+		zap.Int32("questionIndex", questionIndex),
+		zap.Uint64("userID", userID))
+
+	// Send notification to frontend through your preferred method
+	// This could be WebSocket, gRPC stream, or message queue
+	s.sendTimeoutNotification(userID, interviewID, questionIndex)
+	
+	// Optionally, you can automatically submit an empty answer
+	// or mark the question as timed out
+	go s.handleTimeoutSubmission(interviewID, questionIndex, userID)
+}
+
+// sendTimeoutNotification sends a notification to the frontend
+func (s *Irelia) sendTimeoutNotification(userID uint64, interviewID string, questionIndex int32) {
+	notification := map[string]interface{}{
+		"type":          "question_timeout",
+		"interviewID":   interviewID,
+		"questionIndex": questionIndex,
+		"timestamp":     time.Now().Unix(),
+	}
+
+	s.logger.Info("Sending timeout notification", 
+		zap.Uint64("userID", userID),
+		zap.Any("notification", notification))
+	
+	if sse.SendToUser(userID, notification) {
+        s.logger.Info("Timeout notification sent via SSE",
+            zap.Uint64("userID", userID))
+        return
+    }
+    
+    // Fallback options if SSE is not available
+    s.logger.Warn("SSE not available for user, using fallback methods",
+        zap.Uint64("userID", userID))
+}
+
+// handleTimeoutSubmission automatically handles timeout submission
+func (s *Irelia) handleTimeoutSubmission(interviewID string, questionIndex int32, userID uint64) {
+	ctx := context.Background()
+	
+	question, err := s.repo.Question.Get(ctx, interviewID, questionIndex)
+	if err != nil {
+		s.logger.Error("Failed to retrieve question for timeout handling", 
+			zap.String("interviewID", interviewID),
+			zap.Int32("questionIndex", questionIndex),
+			zap.Error(err))
+		return
+	}
+
+	// Only handle if question is still unanswered
+	if question.Status == pb.QuestionStatus_QUESTION_STATUS_NEW {
+		question.Answer = "" // Empty answer for timeout
+		question.Status = pb.QuestionStatus_QUESTION_STATUS_SKIPPED
+		
+		if err := s.repo.Question.Update(ctx, userID, question); err != nil {
+			s.logger.Error("Failed to update question on timeout", 
+				zap.String("interviewID", interviewID),
+				zap.Int32("questionIndex", questionIndex),
+				zap.Error(err))
+		}
+	}
+}
+
+/*
+* HELPER FUNCTIONS
+*/
+
 // Store the intro question in a slice
 func (s *Irelia) generateIntroQuestion(language string) string {
     var questions []string
@@ -384,6 +464,16 @@ func (s *Irelia) generatePositionSpecificQuestions(position string, language str
             fmt.Sprintf("Bạn sẽ đưa ra lời khuyên gì cho một người mới bắt đầu sự nghiệp trong lĩnh vực %s?", position),
             fmt.Sprintf("Những khát vọng của bạn cho sự nghiệp trong lĩnh vực %s là gì?", position),
             fmt.Sprintf("Theo bạn, những kỹ năng quan trọng nhất để thành công trong lĩnh vực %s là gì?", position),
+			fmt.Sprintf("Bạn thường làm thế nào để cập nhật kiến thức mới trong lĩnh vực %s?", position),
+			fmt.Sprintf("Bạn có thể kể về một tình huống khó khăn trong lĩnh vực %s và cách bạn vượt qua nó?", position),
+			fmt.Sprintf("Bạn đã từng làm việc nhóm trong lĩnh vực %s chưa? Vai trò của bạn là gì?", position),
+			fmt.Sprintf("Bạn đánh giá thế nào về tác động xã hội của công việc trong lĩnh vực %s?", position),
+			fmt.Sprintf("Điều gì khiến bạn tự hào nhất trong quá trình làm việc ở lĩnh vực %s?", position),
+			fmt.Sprintf("Bạn xử lý thế nào khi gặp sự bất đồng quan điểm trong nhóm làm việc thuộc lĩnh vực %s?", position),
+			fmt.Sprintf("Bạn có thể kể về một quyết định khó khăn bạn từng đưa ra trong lĩnh vực %s không?", position),
+			"Nếu người quản lý của bạn yêu cầu bạn làm điều gì đó mà bạn không đồng ý, bạn sẽ làm gì?",
+			"Điểm bạn cần cải thiện trong thời điểm này là gì? Bạn có kế hoạch để cải thiện những điểm này chưa?",
+			"Điều gì ở đồng nghiệp cũ/ người quản lý cũ làm bạn khó chịu?",
         }
     } else {
         questions = []string{
@@ -398,6 +488,16 @@ func (s *Irelia) generatePositionSpecificQuestions(position string, language str
             fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
             fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
             fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
+			fmt.Sprintf("How do you stay updated with the latest advancements in %s?", position),
+			fmt.Sprintf("Can you talk about a challenging situation in %s and how you handled it?", position),
+			fmt.Sprintf("Have you collaborated in a team within the %s field? What role did you play?", position),
+			fmt.Sprintf("How do you perceive the societal impact of work done in the %s field?", position),
+			fmt.Sprintf("What is your proudest achievement so far in %s?", position),
+			fmt.Sprintf("How do you manage conflicts or disagreements within a team in %s?", position),
+			fmt.Sprintf("Could you describe a difficult decision you've had to make in the field of %s?", position),
+			"If your manager asked you to do something that you disagree with, what would you do?",
+			"What are things you need to improve at this point? Do you have a plan for the improvements?",
+			"What is it about your former coworker / former manager that annoys you?",
         }
     }
 	rand.Seed(time.Now().UnixNano())
@@ -427,7 +527,7 @@ func (s *Irelia) substringAfterLastDotOrDash(str string) string {
 }
 
 // Add transitions to the question content
-func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string, language string) string {
+func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string, language string, isTimeout bool) string {
 	var responseTokens []string
     var transitionSentences []string
 
@@ -447,6 +547,13 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
             "Now, let's move on to the next question.", "Let's proceed to the next question.", "Moving on to the next question.",
             "Next question coming up.", "Here's the next question.",
         }
+    }
+
+	if isTimeout {
+        if language == "Vietnamese" {
+            return "Tôi sẽ chuyển qua câu hỏi khác."
+        }
+        return "We skip to the next question."
     }
 
 	rand.Seed(time.Now().UnixNano())

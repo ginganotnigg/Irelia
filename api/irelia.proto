@@ -188,6 +188,7 @@ message QuestionResponse {
   LipSyncData lipsync = 4;
   bool is_last_question = 5;
   bool is_loading = 6;
+  int64 timestamp = 7;
 }
 
 // 3. Submit Answer

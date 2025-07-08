@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync"
+	"time"
 
 	pb "irelia/api"
 	repo "irelia/internal/repo"
@@ -44,6 +45,7 @@ type Irelia struct {
 	questionWorkerPool *QuestionWorkerPool
 	preparationMutex   sync.RWMutex
 	preparationStatus  map[string]map[int32]bool
+	timerManager       *QuestionTimerManager
 }
 
 // NewIrelia creates a new gRPC service for Frontend to Irelia communication
@@ -51,6 +53,8 @@ func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger, redis 
 	ext := ext.New()
 	dariusClient := sv.NewDariusClient(logger)
 	karmaClient := sv.NewKarmaClient(logger)
+	questionTimeout := viper.GetInt("question_timeout")
+	timer := NewQuestionTimerManager(logger, time.Duration(questionTimeout)*time.Second)
 
 	irelia := &Irelia{
 		dariusClient: *dariusClient,
@@ -60,6 +64,7 @@ func New(repo *repo.Repository, rabbit rabbit.Rabbit, logger *zap.Logger, redis 
 		logger:       logger,
 		extractor:    ext,
 		redis:        redis,
+		timerManager: timer,
 	}
 	size := viper.GetInt("worker.size")
 	maxTasksPerWorker := viper.GetInt("worker.max_tasks_per_worker")
@@ -177,6 +182,9 @@ func (s *Irelia) SubmitAnswer(ctx context.Context, req *pb.SubmitAnswerRequest) 
 		return nil, status.Errorf(codes.Unauthenticated, "Failed to extract user ID from context: %v", err)
 	}
 
+	timerKey := fmt.Sprintf("%s:%d", req.InterviewId, req.Index)
+	s.timerManager.cancelTimer(timerKey)
+
 	question, err := s.repo.Question.Get(ctx, req.InterviewId, req.Index)
 	if err != nil {
 		s.logger.Error("Failed to retrieve question", zap.String("interviewId", req.InterviewId), zap.Int32("questionIndex", req.Index), zap.Error(err))
@@ -225,46 +233,10 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 		return nil, status.Errorf(codes.InvalidArgument, "Question index out of range: %d", req.QuestionIndex)
 	}
 
-	// Retrieve the next question using the provided index
-	exists, err := s.repo.Question.Exists(ctx, req.InterviewId, req.QuestionIndex)
-	if err != nil {
-		s.logger.Error("Failed to check if question exists", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
-		return &pb.QuestionResponse{
-			QuestionId:     req.QuestionIndex,
-			Content:        "",
-			Audio:          "",
-			Lipsync:        nil,
-			IsLastQuestion: false,
-			IsLoading:      true,
-		}, nil
-	}
-	if !exists {
-		s.logger.Warn("Next question not found", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
-		// const questionWaitTimeout = 10 * time.Second
-		// const questionPollInterval = 500 * time.Millisecond
-		// waitCtx, cancel := context.WithTimeout(ctx, questionWaitTimeout)
-		// defer cancel()
-		// for {
-		//     select {
-		//     case <-waitCtx.Done():
-		//         s.logger.Error("Timeout waiting for question to be prepared", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex))
-		//         return nil, status.Errorf(codes.DeadlineExceeded, "Timeout waiting for question to be prepared")
-		//     default:
-		//         // Try to get the question
-		//         _, err := s.repo.Question.Get(ctx, req.InterviewId, req.QuestionIndex)
-		//         if ent.IsNotSingular(err) {
-		//             s.logger.Error("Multiple questions found for the same index", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex))
-		//             return nil, status.Errorf(codes.Internal, "Multiple questions found for the same index")
-		//         }
-		//         time.Sleep(questionPollInterval)
-		//     }
-		// }
-	}
-
 	// Retrieve the next question from the database
 	question, err := s.repo.Question.Get(ctx, req.InterviewId, req.QuestionIndex)
 	if err != nil {
-		s.logger.Error("Failed to retrieve next question", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
+		s.logger.Warn("Failed to retrieve next question", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
 		return &pb.QuestionResponse{
 			QuestionId:     req.QuestionIndex,
 			Content:        "",
@@ -272,11 +244,14 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 			Lipsync:        nil,
 			IsLastQuestion: false,
 			IsLoading:      true,
+			Timestamp:      time.Now().Unix(),
 		}, nil
 	}
 
 	// Determine if this is the last question
 	isLastQuestion := req.QuestionIndex == interview.TotalQuestions
+
+	s.timerManager.startTimer(req.InterviewId, req.QuestionIndex, userID, s.handleQuestionTimeout)
 
 	if !isLastQuestion {
 		// Prepare additional questions based on configuration
@@ -305,6 +280,7 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 		Lipsync:        question.Lipsync,
 		IsLastQuestion: isLastQuestion,
 		IsLoading:      false,
+		Timestamp:      time.Now().Unix(),
 	}, nil
 }
 
@@ -315,6 +291,8 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		s.logger.Error("Failed to extract user ID from context", zap.Error(err))
 		return nil, status.Errorf(codes.Unauthenticated, "Failed to extract user ID from context: %v", err)
 	}
+
+	s.timerManager.cleanupInterviewTimers(req.InterviewId)
 
 	interview, err := s.repo.Interview.Get(ctx, req.InterviewId)
 	if err != nil {
@@ -344,7 +322,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 	}
 
 	// Prepare lip-sync data for the outro
-	if outro, err = s.prepareLipSync(ctx, outro, interview, true); err != nil {
+	if outro, err = s.prepareLipSync(ctx, outro, interview, true, false); err != nil {
 		s.logger.Error("Failed to prepare lip sync for the outro", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to prepare lip sync for the outro: %v", err)
 	}
