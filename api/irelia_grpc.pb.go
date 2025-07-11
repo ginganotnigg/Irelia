@@ -27,6 +27,8 @@ const (
 	Irelia_GetInterviewHistory_FullMethodName  = "/irelia.Irelia/GetInterviewHistory"
 	Irelia_GetInterview_FullMethodName         = "/irelia.Irelia/GetInterview"
 	Irelia_FavoriteInterview_FullMethodName    = "/irelia.Irelia/FavoriteInterview"
+	Irelia_DemoInterview_FullMethodName        = "/irelia.Irelia/DemoInterview"
+	Irelia_GetPublicQuestion_FullMethodName    = "/irelia.Irelia/GetPublicQuestion"
 	Irelia_GenerateNextQuestion_FullMethodName = "/irelia.Irelia/GenerateNextQuestion"
 	Irelia_ScoreInterview_FullMethodName       = "/irelia.Irelia/ScoreInterview"
 	Irelia_GenerateLipSync_FullMethodName      = "/irelia.Irelia/GenerateLipSync"
@@ -44,6 +46,8 @@ type IreliaClient interface {
 	GetInterviewHistory(ctx context.Context, in *GetInterviewHistoryRequest, opts ...grpc.CallOption) (*GetInterviewHistoryResponse, error)
 	GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error)
 	FavoriteInterview(ctx context.Context, in *FavoriteInterviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DemoInterview(ctx context.Context, in *DemoRequest, opts ...grpc.CallOption) (*DemoResponse, error)
+	GetPublicQuestion(ctx context.Context, in *GetPublicQuestionRequest, opts ...grpc.CallOption) (*GetPublicQuestionResponse, error)
 	// Irelia to Darius (Question Generator)
 	GenerateNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error)
 	ScoreInterview(ctx context.Context, in *ScoreInterviewRequest, opts ...grpc.CallOption) (*ScoreInterviewResponse, error)
@@ -129,6 +133,26 @@ func (c *ireliaClient) FavoriteInterview(ctx context.Context, in *FavoriteInterv
 	return out, nil
 }
 
+func (c *ireliaClient) DemoInterview(ctx context.Context, in *DemoRequest, opts ...grpc.CallOption) (*DemoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DemoResponse)
+	err := c.cc.Invoke(ctx, Irelia_DemoInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *ireliaClient) GetPublicQuestion(ctx context.Context, in *GetPublicQuestionRequest, opts ...grpc.CallOption) (*GetPublicQuestionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPublicQuestionResponse)
+	err := c.cc.Invoke(ctx, Irelia_GetPublicQuestion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *ireliaClient) GenerateNextQuestion(ctx context.Context, in *NextQuestionRequest, opts ...grpc.CallOption) (*NextQuestionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(NextQuestionResponse)
@@ -171,6 +195,8 @@ type IreliaServer interface {
 	GetInterviewHistory(context.Context, *GetInterviewHistoryRequest) (*GetInterviewHistoryResponse, error)
 	GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error)
 	FavoriteInterview(context.Context, *FavoriteInterviewRequest) (*emptypb.Empty, error)
+	DemoInterview(context.Context, *DemoRequest) (*DemoResponse, error)
+	GetPublicQuestion(context.Context, *GetPublicQuestionRequest) (*GetPublicQuestionResponse, error)
 	// Irelia to Darius (Question Generator)
 	GenerateNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error)
 	ScoreInterview(context.Context, *ScoreInterviewRequest) (*ScoreInterviewResponse, error)
@@ -205,6 +231,12 @@ func (UnimplementedIreliaServer) GetInterview(context.Context, *GetInterviewRequ
 }
 func (UnimplementedIreliaServer) FavoriteInterview(context.Context, *FavoriteInterviewRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FavoriteInterview not implemented")
+}
+func (UnimplementedIreliaServer) DemoInterview(context.Context, *DemoRequest) (*DemoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DemoInterview not implemented")
+}
+func (UnimplementedIreliaServer) GetPublicQuestion(context.Context, *GetPublicQuestionRequest) (*GetPublicQuestionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPublicQuestion not implemented")
 }
 func (UnimplementedIreliaServer) GenerateNextQuestion(context.Context, *NextQuestionRequest) (*NextQuestionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateNextQuestion not implemented")
@@ -361,6 +393,42 @@ func _Irelia_FavoriteInterview_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Irelia_DemoInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DemoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IreliaServer).DemoInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Irelia_DemoInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IreliaServer).DemoInterview(ctx, req.(*DemoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Irelia_GetPublicQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPublicQuestionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IreliaServer).GetPublicQuestion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Irelia_GetPublicQuestion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IreliaServer).GetPublicQuestion(ctx, req.(*GetPublicQuestionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Irelia_GenerateNextQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NextQuestionRequest)
 	if err := dec(in); err != nil {
@@ -449,6 +517,14 @@ var Irelia_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FavoriteInterview",
 			Handler:    _Irelia_FavoriteInterview_Handler,
+		},
+		{
+			MethodName: "DemoInterview",
+			Handler:    _Irelia_DemoInterview_Handler,
+		},
+		{
+			MethodName: "GetPublicQuestion",
+			Handler:    _Irelia_GetPublicQuestion_Handler,
 		},
 		{
 			MethodName: "GenerateNextQuestion",

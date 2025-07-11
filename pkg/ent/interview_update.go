@@ -22,9 +22,8 @@ import (
 // InterviewUpdate is the builder for updating Interview entities.
 type InterviewUpdate struct {
 	config
-	hooks     []Hook
-	mutation  *InterviewMutation
-	modifiers []func(*sql.UpdateBuilder)
+	hooks    []Hook
+	mutation *InterviewMutation
 }
 
 // Where appends a list predicates to the InterviewUpdate builder.
@@ -462,12 +461,6 @@ func (iu *InterviewUpdate) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (iu *InterviewUpdate) Modify(modifiers ...func(u *sql.UpdateBuilder)) *InterviewUpdate {
-	iu.modifiers = append(iu.modifiers, modifiers...)
-	return iu
-}
-
 func (iu *InterviewUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if err := iu.check(); err != nil {
 		return n, err
@@ -670,7 +663,6 @@ func (iu *InterviewUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	_spec.AddModifiers(iu.modifiers...)
 	if n, err = sqlgraph.UpdateNodes(ctx, iu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{interview.Label}
@@ -686,10 +678,9 @@ func (iu *InterviewUpdate) sqlSave(ctx context.Context) (n int, err error) {
 // InterviewUpdateOne is the builder for updating a single Interview entity.
 type InterviewUpdateOne struct {
 	config
-	fields    []string
-	hooks     []Hook
-	mutation  *InterviewMutation
-	modifiers []func(*sql.UpdateBuilder)
+	fields   []string
+	hooks    []Hook
+	mutation *InterviewMutation
 }
 
 // SetUpdatedAt sets the "updated_at" field.
@@ -1134,12 +1125,6 @@ func (iuo *InterviewUpdateOne) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (iuo *InterviewUpdateOne) Modify(modifiers ...func(u *sql.UpdateBuilder)) *InterviewUpdateOne {
-	iuo.modifiers = append(iuo.modifiers, modifiers...)
-	return iuo
-}
-
 func (iuo *InterviewUpdateOne) sqlSave(ctx context.Context) (_node *Interview, err error) {
 	if err := iuo.check(); err != nil {
 		return _node, err
@@ -1359,7 +1344,6 @@ func (iuo *InterviewUpdateOne) sqlSave(ctx context.Context) (_node *Interview, e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	_spec.AddModifiers(iuo.modifiers...)
 	_node = &Interview{config: iuo.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

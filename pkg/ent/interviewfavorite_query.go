@@ -24,7 +24,6 @@ type InterviewFavoriteQuery struct {
 	inters        []Interceptor
 	predicates    []predicate.InterviewFavorite
 	withInterview *InterviewQuery
-	modifiers     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -277,9 +276,8 @@ func (ifq *InterviewFavoriteQuery) Clone() *InterviewFavoriteQuery {
 		predicates:    append([]predicate.InterviewFavorite{}, ifq.predicates...),
 		withInterview: ifq.withInterview.Clone(),
 		// clone intermediate query.
-		sql:       ifq.sql.Clone(),
-		path:      ifq.path,
-		modifiers: append([]func(*sql.Selector){}, ifq.modifiers...),
+		sql:  ifq.sql.Clone(),
+		path: ifq.path,
 	}
 }
 
@@ -385,9 +383,6 @@ func (ifq *InterviewFavoriteQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
-	if len(ifq.modifiers) > 0 {
-		_spec.Modifiers = ifq.modifiers
-	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -438,9 +433,6 @@ func (ifq *InterviewFavoriteQuery) loadInterview(ctx context.Context, query *Int
 
 func (ifq *InterviewFavoriteQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := ifq.querySpec()
-	if len(ifq.modifiers) > 0 {
-		_spec.Modifiers = ifq.modifiers
-	}
 	_spec.Node.Columns = ifq.ctx.Fields
 	if len(ifq.ctx.Fields) > 0 {
 		_spec.Unique = ifq.ctx.Unique != nil && *ifq.ctx.Unique
@@ -506,9 +498,6 @@ func (ifq *InterviewFavoriteQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	if ifq.ctx.Unique != nil && *ifq.ctx.Unique {
 		selector.Distinct()
 	}
-	for _, m := range ifq.modifiers {
-		m(selector)
-	}
 	for _, p := range ifq.predicates {
 		p(selector)
 	}
@@ -524,12 +513,6 @@ func (ifq *InterviewFavoriteQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (ifq *InterviewFavoriteQuery) Modify(modifiers ...func(s *sql.Selector)) *InterviewFavoriteSelect {
-	ifq.modifiers = append(ifq.modifiers, modifiers...)
-	return ifq.Select()
 }
 
 // InterviewFavoriteGroupBy is the group-by builder for InterviewFavorite entities.
@@ -620,10 +603,4 @@ func (ifs *InterviewFavoriteSelect) sqlScan(ctx context.Context, root *Interview
 	}
 	defer rows.Close()
 	return sql.ScanSlice(rows, v)
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (ifs *InterviewFavoriteSelect) Modify(modifiers ...func(s *sql.Selector)) *InterviewFavoriteSelect {
-	ifs.modifiers = append(ifs.modifiers, modifiers...)
-	return ifs
 }

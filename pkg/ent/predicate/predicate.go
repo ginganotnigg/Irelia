@@ -12,5 +12,8 @@ type Interview func(*sql.Selector)
 // InterviewFavorite is the predicate function for interviewfavorite builders.
 type InterviewFavorite func(*sql.Selector)
 
+// PublicQuestion is the predicate function for publicquestion builders.
+type PublicQuestion func(*sql.Selector)
+
 // Question is the predicate function for question builders.
 type Question func(*sql.Selector)

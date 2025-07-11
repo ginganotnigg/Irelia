@@ -19,9 +19,8 @@ import (
 // QuestionUpdate is the builder for updating Question entities.
 type QuestionUpdate struct {
 	config
-	hooks     []Hook
-	mutation  *QuestionMutation
-	modifiers []func(*sql.UpdateBuilder)
+	hooks    []Hook
+	mutation *QuestionMutation
 }
 
 // Where appends a list predicates to the QuestionUpdate builder.
@@ -237,12 +236,6 @@ func (qu *QuestionUpdate) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (qu *QuestionUpdate) Modify(modifiers ...func(u *sql.UpdateBuilder)) *QuestionUpdate {
-	qu.modifiers = append(qu.modifiers, modifiers...)
-	return qu
-}
-
 func (qu *QuestionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if err := qu.check(); err != nil {
 		return n, err
@@ -303,7 +296,6 @@ func (qu *QuestionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := qu.mutation.AddedStatus(); ok {
 		_spec.AddField(question.FieldStatus, field.TypeInt32, value)
 	}
-	_spec.AddModifiers(qu.modifiers...)
 	if n, err = sqlgraph.UpdateNodes(ctx, qu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{question.Label}
@@ -319,10 +311,9 @@ func (qu *QuestionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 // QuestionUpdateOne is the builder for updating a single Question entity.
 type QuestionUpdateOne struct {
 	config
-	fields    []string
-	hooks     []Hook
-	mutation  *QuestionMutation
-	modifiers []func(*sql.UpdateBuilder)
+	fields   []string
+	hooks    []Hook
+	mutation *QuestionMutation
 }
 
 // SetUpdatedAt sets the "updated_at" field.
@@ -545,12 +536,6 @@ func (quo *QuestionUpdateOne) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (quo *QuestionUpdateOne) Modify(modifiers ...func(u *sql.UpdateBuilder)) *QuestionUpdateOne {
-	quo.modifiers = append(quo.modifiers, modifiers...)
-	return quo
-}
-
 func (quo *QuestionUpdateOne) sqlSave(ctx context.Context) (_node *Question, err error) {
 	if err := quo.check(); err != nil {
 		return _node, err
@@ -628,7 +613,6 @@ func (quo *QuestionUpdateOne) sqlSave(ctx context.Context) (_node *Question, err
 	if value, ok := quo.mutation.AddedStatus(); ok {
 		_spec.AddField(question.FieldStatus, field.TypeInt32, value)
 	}
-	_spec.AddModifiers(quo.modifiers...)
 	_node = &Question{config: quo.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

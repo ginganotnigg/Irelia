@@ -24,7 +24,6 @@ type QuestionQuery struct {
 	inters        []Interceptor
 	predicates    []predicate.Question
 	withInterview *InterviewQuery
-	modifiers     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -277,9 +276,8 @@ func (qq *QuestionQuery) Clone() *QuestionQuery {
 		predicates:    append([]predicate.Question{}, qq.predicates...),
 		withInterview: qq.withInterview.Clone(),
 		// clone intermediate query.
-		sql:       qq.sql.Clone(),
-		path:      qq.path,
-		modifiers: append([]func(*sql.Selector){}, qq.modifiers...),
+		sql:  qq.sql.Clone(),
+		path: qq.path,
 	}
 }
 
@@ -385,9 +383,6 @@ func (qq *QuestionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Que
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
-	if len(qq.modifiers) > 0 {
-		_spec.Modifiers = qq.modifiers
-	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -438,9 +433,6 @@ func (qq *QuestionQuery) loadInterview(ctx context.Context, query *InterviewQuer
 
 func (qq *QuestionQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := qq.querySpec()
-	if len(qq.modifiers) > 0 {
-		_spec.Modifiers = qq.modifiers
-	}
 	_spec.Node.Columns = qq.ctx.Fields
 	if len(qq.ctx.Fields) > 0 {
 		_spec.Unique = qq.ctx.Unique != nil && *qq.ctx.Unique
@@ -506,9 +498,6 @@ func (qq *QuestionQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	if qq.ctx.Unique != nil && *qq.ctx.Unique {
 		selector.Distinct()
 	}
-	for _, m := range qq.modifiers {
-		m(selector)
-	}
 	for _, p := range qq.predicates {
 		p(selector)
 	}
@@ -524,12 +513,6 @@ func (qq *QuestionQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (qq *QuestionQuery) Modify(modifiers ...func(s *sql.Selector)) *QuestionSelect {
-	qq.modifiers = append(qq.modifiers, modifiers...)
-	return qq.Select()
 }
 
 // QuestionGroupBy is the group-by builder for Question entities.
@@ -620,10 +603,4 @@ func (qs *QuestionSelect) sqlScan(ctx context.Context, root *QuestionQuery, v an
 	}
 	defer rows.Close()
 	return sql.ScanSlice(rows, v)
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (qs *QuestionSelect) Modify(modifiers ...func(s *sql.Selector)) *QuestionSelect {
-	qs.modifiers = append(qs.modifiers, modifiers...)
-	return qs
 }

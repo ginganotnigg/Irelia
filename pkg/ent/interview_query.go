@@ -27,7 +27,6 @@ type InterviewQuery struct {
 	predicates    []predicate.Interview
 	withQuestions *QuestionQuery
 	withFavorites *InterviewFavoriteQuery
-	modifiers     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -303,9 +302,8 @@ func (iq *InterviewQuery) Clone() *InterviewQuery {
 		withQuestions: iq.withQuestions.Clone(),
 		withFavorites: iq.withFavorites.Clone(),
 		// clone intermediate query.
-		sql:       iq.sql.Clone(),
-		path:      iq.path,
-		modifiers: append([]func(*sql.Selector){}, iq.modifiers...),
+		sql:  iq.sql.Clone(),
+		path: iq.path,
 	}
 }
 
@@ -423,9 +421,6 @@ func (iq *InterviewQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*In
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
-	if len(iq.modifiers) > 0 {
-		_spec.Modifiers = iq.modifiers
-	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -515,9 +510,6 @@ func (iq *InterviewQuery) loadFavorites(ctx context.Context, query *InterviewFav
 
 func (iq *InterviewQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := iq.querySpec()
-	if len(iq.modifiers) > 0 {
-		_spec.Modifiers = iq.modifiers
-	}
 	_spec.Node.Columns = iq.ctx.Fields
 	if len(iq.ctx.Fields) > 0 {
 		_spec.Unique = iq.ctx.Unique != nil && *iq.ctx.Unique
@@ -580,9 +572,6 @@ func (iq *InterviewQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	if iq.ctx.Unique != nil && *iq.ctx.Unique {
 		selector.Distinct()
 	}
-	for _, m := range iq.modifiers {
-		m(selector)
-	}
 	for _, p := range iq.predicates {
 		p(selector)
 	}
@@ -598,12 +587,6 @@ func (iq *InterviewQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (iq *InterviewQuery) Modify(modifiers ...func(s *sql.Selector)) *InterviewSelect {
-	iq.modifiers = append(iq.modifiers, modifiers...)
-	return iq.Select()
 }
 
 // InterviewGroupBy is the group-by builder for Interview entities.
@@ -694,10 +677,4 @@ func (is *InterviewSelect) sqlScan(ctx context.Context, root *InterviewQuery, v 
 	}
 	defer rows.Close()
 	return sql.ScanSlice(rows, v)
-}
-
-// Modify adds a query modifier for attaching custom logic to queries.
-func (is *InterviewSelect) Modify(modifiers ...func(s *sql.Selector)) *InterviewSelect {
-	is.modifiers = append(is.modifiers, modifiers...)
-	return is
 }

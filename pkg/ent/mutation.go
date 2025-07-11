@@ -10,6 +10,7 @@ import (
 	"irelia/pkg/ent/interview"
 	"irelia/pkg/ent/interviewfavorite"
 	"irelia/pkg/ent/predicate"
+	"irelia/pkg/ent/publicquestion"
 	"irelia/pkg/ent/question"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ const (
 	// Node types.
 	TypeInterview         = "Interview"
 	TypeInterviewFavorite = "InterviewFavorite"
+	TypePublicQuestion    = "PublicQuestion"
 	TypeQuestion          = "Question"
 )
 
@@ -2478,6 +2480,678 @@ func (m *InterviewFavoriteMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown InterviewFavorite edge %s", name)
+}
+
+// PublicQuestionMutation represents an operation that mutates the PublicQuestion nodes in the graph.
+type PublicQuestionMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int
+	created_at    *time.Time
+	updated_at    *time.Time
+	position      *string
+	experience    *string
+	language      *string
+	content       *string
+	answer        *string
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*PublicQuestion, error)
+	predicates    []predicate.PublicQuestion
+}
+
+var _ ent.Mutation = (*PublicQuestionMutation)(nil)
+
+// publicquestionOption allows management of the mutation configuration using functional options.
+type publicquestionOption func(*PublicQuestionMutation)
+
+// newPublicQuestionMutation creates new mutation for the PublicQuestion entity.
+func newPublicQuestionMutation(c config, op Op, opts ...publicquestionOption) *PublicQuestionMutation {
+	m := &PublicQuestionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePublicQuestion,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPublicQuestionID sets the ID field of the mutation.
+func withPublicQuestionID(id int) publicquestionOption {
+	return func(m *PublicQuestionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PublicQuestion
+		)
+		m.oldValue = func(ctx context.Context) (*PublicQuestion, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PublicQuestion.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPublicQuestion sets the old PublicQuestion of the mutation.
+func withPublicQuestion(node *PublicQuestion) publicquestionOption {
+	return func(m *PublicQuestionMutation) {
+		m.oldValue = func(context.Context) (*PublicQuestion, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PublicQuestionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PublicQuestionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PublicQuestionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PublicQuestionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PublicQuestion.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PublicQuestionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PublicQuestionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PublicQuestionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *PublicQuestionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *PublicQuestionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *PublicQuestionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetPosition sets the "position" field.
+func (m *PublicQuestionMutation) SetPosition(s string) {
+	m.position = &s
+}
+
+// Position returns the value of the "position" field in the mutation.
+func (m *PublicQuestionMutation) Position() (r string, exists bool) {
+	v := m.position
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPosition returns the old "position" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldPosition(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPosition is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPosition requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPosition: %w", err)
+	}
+	return oldValue.Position, nil
+}
+
+// ResetPosition resets all changes to the "position" field.
+func (m *PublicQuestionMutation) ResetPosition() {
+	m.position = nil
+}
+
+// SetExperience sets the "experience" field.
+func (m *PublicQuestionMutation) SetExperience(s string) {
+	m.experience = &s
+}
+
+// Experience returns the value of the "experience" field in the mutation.
+func (m *PublicQuestionMutation) Experience() (r string, exists bool) {
+	v := m.experience
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExperience returns the old "experience" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldExperience(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExperience is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExperience requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExperience: %w", err)
+	}
+	return oldValue.Experience, nil
+}
+
+// ResetExperience resets all changes to the "experience" field.
+func (m *PublicQuestionMutation) ResetExperience() {
+	m.experience = nil
+}
+
+// SetLanguage sets the "language" field.
+func (m *PublicQuestionMutation) SetLanguage(s string) {
+	m.language = &s
+}
+
+// Language returns the value of the "language" field in the mutation.
+func (m *PublicQuestionMutation) Language() (r string, exists bool) {
+	v := m.language
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLanguage returns the old "language" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldLanguage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLanguage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLanguage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLanguage: %w", err)
+	}
+	return oldValue.Language, nil
+}
+
+// ResetLanguage resets all changes to the "language" field.
+func (m *PublicQuestionMutation) ResetLanguage() {
+	m.language = nil
+}
+
+// SetContent sets the "content" field.
+func (m *PublicQuestionMutation) SetContent(s string) {
+	m.content = &s
+}
+
+// Content returns the value of the "content" field in the mutation.
+func (m *PublicQuestionMutation) Content() (r string, exists bool) {
+	v := m.content
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContent returns the old "content" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldContent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContent: %w", err)
+	}
+	return oldValue.Content, nil
+}
+
+// ResetContent resets all changes to the "content" field.
+func (m *PublicQuestionMutation) ResetContent() {
+	m.content = nil
+}
+
+// SetAnswer sets the "answer" field.
+func (m *PublicQuestionMutation) SetAnswer(s string) {
+	m.answer = &s
+}
+
+// Answer returns the value of the "answer" field in the mutation.
+func (m *PublicQuestionMutation) Answer() (r string, exists bool) {
+	v := m.answer
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAnswer returns the old "answer" field's value of the PublicQuestion entity.
+// If the PublicQuestion object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PublicQuestionMutation) OldAnswer(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAnswer is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAnswer requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAnswer: %w", err)
+	}
+	return oldValue.Answer, nil
+}
+
+// ClearAnswer clears the value of the "answer" field.
+func (m *PublicQuestionMutation) ClearAnswer() {
+	m.answer = nil
+	m.clearedFields[publicquestion.FieldAnswer] = struct{}{}
+}
+
+// AnswerCleared returns if the "answer" field was cleared in this mutation.
+func (m *PublicQuestionMutation) AnswerCleared() bool {
+	_, ok := m.clearedFields[publicquestion.FieldAnswer]
+	return ok
+}
+
+// ResetAnswer resets all changes to the "answer" field.
+func (m *PublicQuestionMutation) ResetAnswer() {
+	m.answer = nil
+	delete(m.clearedFields, publicquestion.FieldAnswer)
+}
+
+// Where appends a list predicates to the PublicQuestionMutation builder.
+func (m *PublicQuestionMutation) Where(ps ...predicate.PublicQuestion) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PublicQuestionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PublicQuestionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PublicQuestion, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PublicQuestionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PublicQuestionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PublicQuestion).
+func (m *PublicQuestionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PublicQuestionMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.created_at != nil {
+		fields = append(fields, publicquestion.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, publicquestion.FieldUpdatedAt)
+	}
+	if m.position != nil {
+		fields = append(fields, publicquestion.FieldPosition)
+	}
+	if m.experience != nil {
+		fields = append(fields, publicquestion.FieldExperience)
+	}
+	if m.language != nil {
+		fields = append(fields, publicquestion.FieldLanguage)
+	}
+	if m.content != nil {
+		fields = append(fields, publicquestion.FieldContent)
+	}
+	if m.answer != nil {
+		fields = append(fields, publicquestion.FieldAnswer)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PublicQuestionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case publicquestion.FieldCreatedAt:
+		return m.CreatedAt()
+	case publicquestion.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case publicquestion.FieldPosition:
+		return m.Position()
+	case publicquestion.FieldExperience:
+		return m.Experience()
+	case publicquestion.FieldLanguage:
+		return m.Language()
+	case publicquestion.FieldContent:
+		return m.Content()
+	case publicquestion.FieldAnswer:
+		return m.Answer()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PublicQuestionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case publicquestion.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case publicquestion.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case publicquestion.FieldPosition:
+		return m.OldPosition(ctx)
+	case publicquestion.FieldExperience:
+		return m.OldExperience(ctx)
+	case publicquestion.FieldLanguage:
+		return m.OldLanguage(ctx)
+	case publicquestion.FieldContent:
+		return m.OldContent(ctx)
+	case publicquestion.FieldAnswer:
+		return m.OldAnswer(ctx)
+	}
+	return nil, fmt.Errorf("unknown PublicQuestion field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicQuestionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case publicquestion.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case publicquestion.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case publicquestion.FieldPosition:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPosition(v)
+		return nil
+	case publicquestion.FieldExperience:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExperience(v)
+		return nil
+	case publicquestion.FieldLanguage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLanguage(v)
+		return nil
+	case publicquestion.FieldContent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContent(v)
+		return nil
+	case publicquestion.FieldAnswer:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAnswer(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PublicQuestion field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PublicQuestionMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PublicQuestionMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PublicQuestionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown PublicQuestion numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PublicQuestionMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(publicquestion.FieldAnswer) {
+		fields = append(fields, publicquestion.FieldAnswer)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PublicQuestionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PublicQuestionMutation) ClearField(name string) error {
+	switch name {
+	case publicquestion.FieldAnswer:
+		m.ClearAnswer()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicQuestion nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PublicQuestionMutation) ResetField(name string) error {
+	switch name {
+	case publicquestion.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case publicquestion.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case publicquestion.FieldPosition:
+		m.ResetPosition()
+		return nil
+	case publicquestion.FieldExperience:
+		m.ResetExperience()
+		return nil
+	case publicquestion.FieldLanguage:
+		m.ResetLanguage()
+		return nil
+	case publicquestion.FieldContent:
+		m.ResetContent()
+		return nil
+	case publicquestion.FieldAnswer:
+		m.ResetAnswer()
+		return nil
+	}
+	return fmt.Errorf("unknown PublicQuestion field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PublicQuestionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PublicQuestionMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PublicQuestionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PublicQuestionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PublicQuestionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PublicQuestionMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PublicQuestionMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown PublicQuestion unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PublicQuestionMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown PublicQuestion edge %s", name)
 }
 
 // QuestionMutation represents an operation that mutates the Question nodes in the graph.

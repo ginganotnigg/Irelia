@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"irelia/pkg/ent/interview"
 	"irelia/pkg/ent/interviewfavorite"
+	"irelia/pkg/ent/publicquestion"
 	"irelia/pkg/ent/question"
 	"reflect"
 	"sync"
@@ -77,6 +78,7 @@ func checkColumn(table, column string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			interview.Table:         interview.ValidColumn,
 			interviewfavorite.Table: interviewfavorite.ValidColumn,
+			publicquestion.Table:    publicquestion.ValidColumn,
 			question.Table:          question.ValidColumn,
 		})
 	})

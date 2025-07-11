@@ -521,3 +521,58 @@ func (s *Irelia) FavoriteInterview(ctx context.Context, req *pb.FavoriteIntervie
 
 	return &emptypb.Empty{}, s.repo.Interview.Favorite(ctx, uint64(userID), req.InterviewId)
 }
+
+// DemoInterview is a demo method to start an interview with predefined parameters
+func (s *Irelia) DemoInterview(ctx context.Context, req *pb.DemoRequest) (*pb.DemoResponse, error) {
+	topic := req.Topic
+	if topic == "" {
+		topic = "basic-dsa"
+	}
+	questions, err := s.loadDemoQuestions(topic)
+	if err != nil {
+		s.logger.Error("Failed to load demo questions", zap.String("topic", topic), zap.Error(err))
+		return nil, status.Errorf(codes.NotFound, "Demo topic not found: %v", err)
+	}
+
+	// Prepare QuestionResponse list
+	var pbQuestions []*pb.QuestionResponse
+	for i, q := range questions {
+		pbQuestions = append(pbQuestions, &pb.QuestionResponse{
+			QuestionId:     int32(i + 1),
+			Content:        q.Content,
+			Audio:          q.Audio,
+			Lipsync:        q.Lipsync,
+			IsLastQuestion: i == len(questions)-1,
+			IsLoading:      false,
+			Timestamp:      time.Now().Unix(),
+		})
+	}
+
+	return &pb.DemoResponse{
+		Questions: pbQuestions,
+	}, nil
+}
+
+func (s *Irelia) GetPublicQuestion(ctx context.Context, req *pb.GetPublicQuestionRequest) (*pb.GetPublicQuestionResponse, error) {
+	questions, err := s.repo.PublicQuestion.List(ctx, req)
+	if err != nil {
+		s.logger.Error("Failed to get public questions", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "Failed to get public questions: %v", err)
+	}
+	var pbQuestions []*pb.PublicQuestion
+	for _, q := range questions {
+		pbQuestions = append(pbQuestions, &pb.PublicQuestion{
+			Content:    q.Content,
+			Answer:     &q.Answer,
+			Position:   q.Position,
+			Experience: q.Experience,
+			BaseData: &pb.BaseData{
+				CreatedAt: timestamppb.New(q.CreatedAt),
+				UpdatedAt: timestamppb.New(q.UpdatedAt),
+			},
+		})
+	}
+	return &pb.GetPublicQuestionResponse{
+		Questions: pbQuestions,
+	}, nil
+}

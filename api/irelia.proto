@@ -54,6 +54,18 @@ service Irelia {
       body: "*"
     };
   }
+
+  rpc DemoInterview(DemoRequest) returns (DemoResponse) {
+    option (google.api.http) = {
+      get: "/interviews/demo/{topic}"
+    };
+  }
+
+  rpc GetPublicQuestion(GetPublicQuestionRequest) returns (GetPublicQuestionResponse) {
+    option (google.api.http) = {
+      get: "/interviews/public-questions"
+    };
+  }
   
   // Irelia to Darius (Question Generator)
   rpc GenerateNextQuestion(NextQuestionRequest) returns (NextQuestionResponse) {
@@ -156,6 +168,14 @@ message Question {
   string score = 9;
   QuestionStatus status = 10;
   BaseData base_data = 11;
+}
+
+message PublicQuestion {
+  string content = 1;
+  optional string answer = 2;
+  string position = 3;
+  string experience = 4;
+  BaseData base_data = 5;
 }
 
 // 1. Start Interview
@@ -372,4 +392,31 @@ message MouthCue {
   float start = 1;
   float end = 2;
   string value = 3;
+}
+
+// 10. Demo Interview
+message DemoRequest {
+  string topic = 1;
+}
+
+message DemoQuestion {
+  string content = 1;
+  string audio = 2;
+  LipSyncData lipsync = 3;
+}
+
+message DemoResponse {
+  repeated QuestionResponse questions = 1;
+}
+
+// 11. Get Public Questions
+message GetPublicQuestionRequest {
+  int32 page = 1;
+  optional string pos = 2;
+  optional string exp = 3;
+  optional string lang = 4;
+}
+
+message GetPublicQuestionResponse {
+  repeated PublicQuestion questions = 1;
 }

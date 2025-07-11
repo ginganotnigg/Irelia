@@ -13,6 +13,7 @@ import (
 
 	"irelia/pkg/ent/interview"
 	"irelia/pkg/ent/interviewfavorite"
+	"irelia/pkg/ent/publicquestion"
 	"irelia/pkg/ent/question"
 
 	"entgo.io/ent"
@@ -30,6 +31,8 @@ type Client struct {
 	Interview *InterviewClient
 	// InterviewFavorite is the client for interacting with the InterviewFavorite builders.
 	InterviewFavorite *InterviewFavoriteClient
+	// PublicQuestion is the client for interacting with the PublicQuestion builders.
+	PublicQuestion *PublicQuestionClient
 	// Question is the client for interacting with the Question builders.
 	Question *QuestionClient
 }
@@ -45,6 +48,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Interview = NewInterviewClient(c.config)
 	c.InterviewFavorite = NewInterviewFavoriteClient(c.config)
+	c.PublicQuestion = NewPublicQuestionClient(c.config)
 	c.Question = NewQuestionClient(c.config)
 }
 
@@ -140,6 +144,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:            cfg,
 		Interview:         NewInterviewClient(cfg),
 		InterviewFavorite: NewInterviewFavoriteClient(cfg),
+		PublicQuestion:    NewPublicQuestionClient(cfg),
 		Question:          NewQuestionClient(cfg),
 	}, nil
 }
@@ -162,6 +167,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:            cfg,
 		Interview:         NewInterviewClient(cfg),
 		InterviewFavorite: NewInterviewFavoriteClient(cfg),
+		PublicQuestion:    NewPublicQuestionClient(cfg),
 		Question:          NewQuestionClient(cfg),
 	}, nil
 }
@@ -193,6 +199,7 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	c.Interview.Use(hooks...)
 	c.InterviewFavorite.Use(hooks...)
+	c.PublicQuestion.Use(hooks...)
 	c.Question.Use(hooks...)
 }
 
@@ -201,6 +208,7 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Interview.Intercept(interceptors...)
 	c.InterviewFavorite.Intercept(interceptors...)
+	c.PublicQuestion.Intercept(interceptors...)
 	c.Question.Intercept(interceptors...)
 }
 
@@ -211,6 +219,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Interview.mutate(ctx, m)
 	case *InterviewFavoriteMutation:
 		return c.InterviewFavorite.mutate(ctx, m)
+	case *PublicQuestionMutation:
+		return c.PublicQuestion.mutate(ctx, m)
 	case *QuestionMutation:
 		return c.Question.mutate(ctx, m)
 	default:
@@ -532,6 +542,139 @@ func (c *InterviewFavoriteClient) mutate(ctx context.Context, m *InterviewFavori
 	}
 }
 
+// PublicQuestionClient is a client for the PublicQuestion schema.
+type PublicQuestionClient struct {
+	config
+}
+
+// NewPublicQuestionClient returns a client for the PublicQuestion from the given config.
+func NewPublicQuestionClient(c config) *PublicQuestionClient {
+	return &PublicQuestionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `publicquestion.Hooks(f(g(h())))`.
+func (c *PublicQuestionClient) Use(hooks ...Hook) {
+	c.hooks.PublicQuestion = append(c.hooks.PublicQuestion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `publicquestion.Intercept(f(g(h())))`.
+func (c *PublicQuestionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PublicQuestion = append(c.inters.PublicQuestion, interceptors...)
+}
+
+// Create returns a builder for creating a PublicQuestion entity.
+func (c *PublicQuestionClient) Create() *PublicQuestionCreate {
+	mutation := newPublicQuestionMutation(c.config, OpCreate)
+	return &PublicQuestionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PublicQuestion entities.
+func (c *PublicQuestionClient) CreateBulk(builders ...*PublicQuestionCreate) *PublicQuestionCreateBulk {
+	return &PublicQuestionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PublicQuestionClient) MapCreateBulk(slice any, setFunc func(*PublicQuestionCreate, int)) *PublicQuestionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PublicQuestionCreateBulk{err: fmt.Errorf("calling to PublicQuestionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PublicQuestionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PublicQuestionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PublicQuestion.
+func (c *PublicQuestionClient) Update() *PublicQuestionUpdate {
+	mutation := newPublicQuestionMutation(c.config, OpUpdate)
+	return &PublicQuestionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PublicQuestionClient) UpdateOne(pq *PublicQuestion) *PublicQuestionUpdateOne {
+	mutation := newPublicQuestionMutation(c.config, OpUpdateOne, withPublicQuestion(pq))
+	return &PublicQuestionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PublicQuestionClient) UpdateOneID(id int) *PublicQuestionUpdateOne {
+	mutation := newPublicQuestionMutation(c.config, OpUpdateOne, withPublicQuestionID(id))
+	return &PublicQuestionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PublicQuestion.
+func (c *PublicQuestionClient) Delete() *PublicQuestionDelete {
+	mutation := newPublicQuestionMutation(c.config, OpDelete)
+	return &PublicQuestionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PublicQuestionClient) DeleteOne(pq *PublicQuestion) *PublicQuestionDeleteOne {
+	return c.DeleteOneID(pq.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PublicQuestionClient) DeleteOneID(id int) *PublicQuestionDeleteOne {
+	builder := c.Delete().Where(publicquestion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PublicQuestionDeleteOne{builder}
+}
+
+// Query returns a query builder for PublicQuestion.
+func (c *PublicQuestionClient) Query() *PublicQuestionQuery {
+	return &PublicQuestionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePublicQuestion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PublicQuestion entity by its id.
+func (c *PublicQuestionClient) Get(ctx context.Context, id int) (*PublicQuestion, error) {
+	return c.Query().Where(publicquestion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PublicQuestionClient) GetX(ctx context.Context, id int) *PublicQuestion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PublicQuestionClient) Hooks() []Hook {
+	return c.hooks.PublicQuestion
+}
+
+// Interceptors returns the client interceptors.
+func (c *PublicQuestionClient) Interceptors() []Interceptor {
+	return c.inters.PublicQuestion
+}
+
+func (c *PublicQuestionClient) mutate(ctx context.Context, m *PublicQuestionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PublicQuestionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PublicQuestionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PublicQuestionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PublicQuestionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PublicQuestion mutation op: %q", m.Op())
+	}
+}
+
 // QuestionClient is a client for the Question schema.
 type QuestionClient struct {
 	config
@@ -684,9 +827,9 @@ func (c *QuestionClient) mutate(ctx context.Context, m *QuestionMutation) (Value
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Interview, InterviewFavorite, Question []ent.Hook
+		Interview, InterviewFavorite, PublicQuestion, Question []ent.Hook
 	}
 	inters struct {
-		Interview, InterviewFavorite, Question []ent.Interceptor
+		Interview, InterviewFavorite, PublicQuestion, Question []ent.Interceptor
 	}
 )

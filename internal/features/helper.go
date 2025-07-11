@@ -1,14 +1,16 @@
 package features
 
 import (
+	"bufio"
 	"context"
 	"crypto/md5"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
-
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -24,35 +26,35 @@ import (
  */
 
 func (s *Irelia) callDariusForGenerate(ctx context.Context, userID uint64, req *pb.NextQuestionRequest) (*pb.NextQuestionResponse, error) {
-    // Log the request for debugging
-    s.logger.Info("Sending request to Darius for question generation", zap.Any("request", req))
+	// Log the request for debugging
+	s.logger.Info("Sending request to Darius for question generation", zap.Any("request", req))
 
-    // Call the Darius service
-    return s.dariusClient.Generate(ctx, fmt.Sprintf("%d", userID), req)
+	// Call the Darius service
+	return s.dariusClient.Generate(ctx, fmt.Sprintf("%d", userID), req)
 }
 
 func (s *Irelia) callDariusForScore(ctx context.Context, userID uint64, req *pb.ScoreInterviewRequest) (*pb.ScoreInterviewResponse, error) {
-    // Log the request for debugging
-    s.logger.Info("Sending request to Darius for scoring", zap.Any("request", req))
+	// Log the request for debugging
+	s.logger.Info("Sending request to Darius for scoring", zap.Any("request", req))
 
-    // Call the Darius service
-    return s.dariusClient.Score(ctx, fmt.Sprintf("%d", userID), req)
+	// Call the Darius service
+	return s.dariusClient.Score(ctx, fmt.Sprintf("%d", userID), req)
 }
 
 func (s *Irelia) callKarmaForLipSync(ctx context.Context, req *pb.LipSyncRequest) (*pb.LipSyncResponse, error) {
-    // Log the request for debugging
-    s.logger.Info("Sending request to Karma for lip-sync generation", zap.Any("request", req))
+	// Log the request for debugging
+	s.logger.Info("Sending request to Karma for lip-sync generation", zap.Any("request", req))
 
-    // Call the Karma service
-    return s.karmaClient.LipSync(ctx, req)
+	// Call the Karma service
+	return s.karmaClient.LipSync(ctx, req)
 }
 
 func (s *Irelia) callKarmaForScore(ctx context.Context, req *pb.ScoreFluencyRequest) (*pb.ScoreFluencyResponse, error) {
-    // Log the request for debugging
-    s.logger.Info("Sending request to Karma for fluency scoring", zap.Any("request", req))
+	// Log the request for debugging
+	s.logger.Info("Sending request to Karma for fluency scoring", zap.Any("request", req))
 
-    // Call the Karma service
-    return s.karmaClient.Score(ctx, req)
+	// Call the Karma service
+	return s.karmaClient.Score(ctx, req)
 }
 
 // Generates the next question using Darius and saves it in the database
@@ -107,7 +109,7 @@ func (s *Irelia) prepareContent(ctx context.Context, userID uint64, interviewID 
 	}
 
 	// Save the generated question(s) in the database
-    questions := []*ent.Question{}
+	questions := []*ent.Question{}
 	for i, content := range dariusResp.Questions {
 		index := questionIndex + int32(i)
 		if index > interviewContext.TotalQuestions {
@@ -126,67 +128,67 @@ func (s *Irelia) prepareContent(ctx context.Context, userID uint64, interviewID 
 
 // Prepare lip-sync data for a question synchronously
 func (s *Irelia) prepareLipSync(ctx context.Context, question *ent.Question, interview *ent.Interview, isOutro bool, isTimeout bool) (*ent.Question, error) {
-    if question == nil {
-        s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
-        return nil, fmt.Errorf("question is nil, cannot prepare lip sync")
-    }
+	if question == nil {
+		s.logger.Error("Question is nil, cannot prepare lip sync", zap.String("interviewId", interview.ID))
+		return nil, fmt.Errorf("question is nil, cannot prepare lip sync")
+	}
 
-    s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
+	s.logger.Info("Preparing lip sync", zap.String("interviewId", interview.ID), zap.String("content", question.Content))
 
-    // Prepare the full string for lip-sync
-    var fullString string
-    var cacheKind string
-    if isOutro {
-        fullString = question.Content
-        cacheKind = "outro"
-    } else if question.QuestionIndex == 1 {
-        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
-        cacheKind = "intro"
-    } else {
-        fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
-        cacheKind = ""
-    }
+	// Prepare the full string for lip-sync
+	var fullString string
+	var cacheKind string
+	if isOutro {
+		fullString = question.Content
+		cacheKind = "outro"
+	} else if question.QuestionIndex == 1 {
+		fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
+		cacheKind = "intro"
+	} else {
+		fullString = s.addTransitionsToQuestion(question, interview.VoiceID, interview.Language, isTimeout)
+		cacheKind = ""
+	}
 
-    // Only cache for intro, position, outro
-    var cacheKey string
-    if cacheKind != "" && s.redis != nil {
-        cacheKey = lipSyncCacheKey(cacheKind, interview.VoiceID, interview.Language, fullString, interview.Speed)
-        // Try to get from cache
-        val, err := s.redis.Get(ctx, cacheKey)
-        if err == nil && val != nil {
-            var cachedResp pb.LipSyncResponse
-            if err := protojson.Unmarshal([]byte(val), &cachedResp); err == nil {
-                question.Audio = cachedResp.Audio
-                question.Lipsync = cachedResp.Lipsync
-                return question, nil
-            }
-        }
-    }
+	// Only cache for intro, position, outro
+	var cacheKey string
+	if cacheKind != "" && s.redis != nil {
+		cacheKey = lipSyncCacheKey(cacheKind, interview.VoiceID, interview.Language, fullString, interview.Speed)
+		// Try to get from cache
+		val, err := s.redis.Get(ctx, cacheKey)
+		if err == nil && val != nil {
+			var cachedResp pb.LipSyncResponse
+			if err := protojson.Unmarshal([]byte(val), &cachedResp); err == nil {
+				question.Audio = cachedResp.Audio
+				question.Lipsync = cachedResp.Lipsync
+				return question, nil
+			}
+		}
+	}
 
-    // Call the Karma service to generate lip-sync data
-    karmaReq := &pb.LipSyncRequest{
-        InterviewId: interview.ID,
-        Content:     fullString,
-        VoiceId:     interview.VoiceID,
-        Speed:       interview.Speed,
-    }
+	// Call the Karma service to generate lip-sync data
+	karmaReq := &pb.LipSyncRequest{
+		InterviewId: interview.ID,
+		Content:     fullString,
+		VoiceId:     interview.VoiceID,
+		Speed:       interview.Speed,
+	}
 
-    karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
-    if err != nil {
-        return nil, fmt.Errorf("failed to generate lip sync: %v", err)
-    }
+	karmaResp, err := s.callKarmaForLipSync(ctx, karmaReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate lip sync: %v", err)
+	}
 
-    // Update the question with the generated lip-sync data
-    question.Audio = karmaResp.Audio
-    question.Lipsync = karmaResp.Lipsync
+	// Update the question with the generated lip-sync data
+	question.Audio = karmaResp.Audio
+	question.Lipsync = karmaResp.Lipsync
 
-    // Save to cache if intro/position/outro
-    if cacheKind != "" && s.redis != nil {
-        s.redis.Set(ctx, cacheKey, karmaResp, 1*time.Hour)
+	// Save to cache if intro/position/outro
+	if cacheKind != "" && s.redis != nil {
+		s.redis.Set(ctx, cacheKey, karmaResp, 1*time.Hour)
 		s.logger.Info("Cached lip sync data", zap.String("cacheKey", cacheKey))
-    }
+	}
 
-    return question, nil
+	return question, nil
 }
 
 func (s *Irelia) prepareQuestionSafe(job QuestionPreparationJob) {
@@ -250,7 +252,7 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 			zap.Int32("questionID", job.NextQuestionID))
 		return nil
 	}
-	
+
 	questions := job.Questions
 	var isTimeout bool
 	if len(questions) == 0 {
@@ -269,7 +271,6 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 		} else {
 			isTimeout = false
 		}
-
 
 		s.logger.Debug("Retrieved submissions for question generation", zap.String("interviewID", job.InterviewID),
 			zap.Int("submissionCount", len(submissions)))
@@ -290,10 +291,18 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 	}
 
 	// Prepare lip sync for each question
+	var publicQuestions []*ent.PublicQuestion
 	for i, question := range questions {
 		if job.NextQuestionID+int32(i) > job.Interview.TotalQuestions {
 			break
 		}
+
+		publicQuestions = append(publicQuestions, &ent.PublicQuestion{
+			Position:   job.Interview.Position,
+			Experience: job.Interview.Experience,
+			Language:   job.Interview.Language,
+			Content:    question.Content,
+		})
 
 		s.logger.Debug("Preparing lip sync for question", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID+int32(i)))
@@ -319,6 +328,15 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 			continue
 		}
 	}
+	// Save public questions if any
+	if len(publicQuestions) > 0 {
+		if err := s.repo.PublicQuestion.CreateBulk(ctx, publicQuestions); err != nil {
+			s.logger.Error("Failed to save public questions", zap.String("interviewID", job.InterviewID),
+				zap.Error(err))
+			return fmt.Errorf("failed to save public questions: %w", err)
+		}
+		s.logger.Debug("Successfully saved public questions", zap.String("interviewID", job.InterviewID), zap.Int("publicQuestionCount", len(publicQuestions)))
+	}
 
 	s.logger.Info("Successfully prepared and saved questions", zap.String("interviewID", job.InterviewID),
 		zap.Int32("startingQuestionID", job.NextQuestionID),
@@ -328,10 +346,10 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 }
 
 func (s *Irelia) ensureQuestionWorkerPool() {
-    if atomic.LoadInt64(&s.questionWorkerPool.activeWorkers) == 0 {
-        s.logger.Warn("All question workers have exited, restarting worker pool")
-        s.questionWorkerPool.Start(s)
-    }
+	if atomic.LoadInt64(&s.questionWorkerPool.activeWorkers) == 0 {
+		s.logger.Warn("All question workers have exited, restarting worker pool")
+		s.questionWorkerPool.Start(s)
+	}
 }
 
 func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {
@@ -349,11 +367,11 @@ func (s *Irelia) getUserID(ctx context.Context) (uint64, error) {
 
 /*
 * HELPER FUNCTIONS
-*/
+ */
 
 // handleQuestionTimeout handles timeout for a question
 func (s *Irelia) handleQuestionTimeout(interviewID string, questionIndex int32, userID uint64) {
-	s.logger.Info("Handling question timeout", 
+	s.logger.Info("Handling question timeout",
 		zap.String("interviewID", interviewID),
 		zap.Int32("questionIndex", questionIndex),
 		zap.Uint64("userID", userID))
@@ -361,7 +379,7 @@ func (s *Irelia) handleQuestionTimeout(interviewID string, questionIndex int32, 
 	// Send notification to frontend through your preferred method
 	// This could be WebSocket, gRPC stream, or message queue
 	s.sendTimeoutNotification(userID, interviewID, questionIndex)
-	
+
 	// Optionally, you can automatically submit an empty answer
 	// or mark the question as timed out
 	go s.handleTimeoutSubmission(interviewID, questionIndex, userID)
@@ -376,28 +394,28 @@ func (s *Irelia) sendTimeoutNotification(userID uint64, interviewID string, ques
 		"timestamp":     time.Now().Unix(),
 	}
 
-	s.logger.Info("Sending timeout notification", 
+	s.logger.Info("Sending timeout notification",
 		zap.Uint64("userID", userID),
 		zap.Any("notification", notification))
-	
+
 	if sse.SendToUser(userID, notification) {
-        s.logger.Info("Timeout notification sent via SSE",
-            zap.Uint64("userID", userID))
-        return
-    }
-    
-    // Fallback options if SSE is not available
-    s.logger.Warn("SSE not available for user, using fallback methods",
-        zap.Uint64("userID", userID))
+		s.logger.Info("Timeout notification sent via SSE",
+			zap.Uint64("userID", userID))
+		return
+	}
+
+	// Fallback options if SSE is not available
+	s.logger.Warn("SSE not available for user, using fallback methods",
+		zap.Uint64("userID", userID))
 }
 
 // handleTimeoutSubmission automatically handles timeout submission
 func (s *Irelia) handleTimeoutSubmission(interviewID string, questionIndex int32, userID uint64) {
 	ctx := context.Background()
-	
+
 	question, err := s.repo.Question.Get(ctx, interviewID, questionIndex)
 	if err != nil {
-		s.logger.Error("Failed to retrieve question for timeout handling", 
+		s.logger.Error("Failed to retrieve question for timeout handling",
 			zap.String("interviewID", interviewID),
 			zap.Int32("questionIndex", questionIndex),
 			zap.Error(err))
@@ -408,9 +426,9 @@ func (s *Irelia) handleTimeoutSubmission(interviewID string, questionIndex int32
 	if question.Status == pb.QuestionStatus_QUESTION_STATUS_NEW {
 		question.Answer = "" // Empty answer for timeout
 		question.Status = pb.QuestionStatus_QUESTION_STATUS_SKIPPED
-		
+
 		if err := s.repo.Question.Update(ctx, userID, question); err != nil {
-			s.logger.Error("Failed to update question on timeout", 
+			s.logger.Error("Failed to update question on timeout",
 				zap.String("interviewID", interviewID),
 				zap.Int32("questionIndex", questionIndex),
 				zap.Error(err))
@@ -420,50 +438,50 @@ func (s *Irelia) handleTimeoutSubmission(interviewID string, questionIndex int32
 
 /*
 * HELPER FUNCTIONS
-*/
+ */
 
 // Store the intro question in a slice
 func (s *Irelia) generateIntroQuestion(language string) string {
-    var questions []string
+	var questions []string
 
-    if language == "Vietnamese" {
-        questions = []string{
-            "Vui lòng cung cấp một cái nhìn tổng quan ngắn gọn về nền tảng chuyên môn và các kỹ năng chính của bạn.",
-            "Nhìn lại hành trình nghề nghiệp của bạn, đâu là một lĩnh vực bạn đang tích cực phát triển và tại sao?",
-            "Những điểm mạnh cốt lõi nào bạn nghĩ rằng bạn mang lại cho vai trò này và bạn đã thể hiện chúng như thế nào trong quá khứ?",
-        }
-    } else {
-        questions = []string{
-            "Please provide a brief overview of your professional background and key qualifications.",
-            "Reflecting on your professional journey, what is one area you are actively working to develop and why?",
-            "What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
-        }
-    }
+	if language == "Vietnamese" {
+		questions = []string{
+			"Vui lòng cung cấp một cái nhìn tổng quan ngắn gọn về nền tảng chuyên môn và các kỹ năng chính của bạn.",
+			"Nhìn lại hành trình nghề nghiệp của bạn, đâu là một lĩnh vực bạn đang tích cực phát triển và tại sao?",
+			"Những điểm mạnh cốt lõi nào bạn nghĩ rằng bạn mang lại cho vai trò này và bạn đã thể hiện chúng như thế nào trong quá khứ?",
+		}
+	} else {
+		questions = []string{
+			"Please provide a brief overview of your professional background and key qualifications.",
+			"Reflecting on your professional journey, what is one area you are actively working to develop and why?",
+			"What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
+		}
+	}
 
-    // Seed the random number generator
-    rand.Seed(time.Now().UnixNano())
-    randomIndex := rand.Intn(len(questions))
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(questions))
 
-    return questions[randomIndex]
+	return questions[randomIndex]
 }
 
 // Store the position-specific questions in a slice
 func (s *Irelia) generatePositionSpecificQuestions(position string, language string) string {
 	var questions []string
 
-    if language == "Vietnamese" {
-        questions = []string{
-            fmt.Sprintf("Bạn có thể mô tả một số dự án hấp dẫn nhất của bạn trong lĩnh vực %s không?", position),
-            fmt.Sprintf("Những kinh nghiệm liên quan nào bạn có trong lĩnh vực %s?", position),
-            fmt.Sprintf("Theo bạn, những thách thức chính hiện nay mà các chuyên gia trong lĩnh vực %s đang đối mặt là gì?", position),
-            fmt.Sprintf("Bạn có thể chia sẻ hành trình của mình vào lĩnh vực %s không?", position),
-            fmt.Sprintf("Những khía cạnh nào của công việc trong lĩnh vực %s mà bạn thấy đặc biệt thú vị?", position),
-            fmt.Sprintf("Những xu hướng mới nổi nào trong lĩnh vực %s mà bạn cảm thấy hào hứng nhất và tại sao?", position),
-            fmt.Sprintf("Những hiểu lầm phổ biến nào xung quanh nghề nghiệp trong lĩnh vực %s?", position),
-            fmt.Sprintf("Bạn có thể giải thích về bất kỳ sáng kiến phát triển nghề nghiệp nào bạn đã thực hiện trong lĩnh vực %s không?", position),
-            fmt.Sprintf("Bạn sẽ đưa ra lời khuyên gì cho một người mới bắt đầu sự nghiệp trong lĩnh vực %s?", position),
-            fmt.Sprintf("Những khát vọng của bạn cho sự nghiệp trong lĩnh vực %s là gì?", position),
-            fmt.Sprintf("Theo bạn, những kỹ năng quan trọng nhất để thành công trong lĩnh vực %s là gì?", position),
+	if language == "Vietnamese" {
+		questions = []string{
+			fmt.Sprintf("Bạn có thể mô tả một số dự án hấp dẫn nhất của bạn trong lĩnh vực %s không?", position),
+			fmt.Sprintf("Những kinh nghiệm liên quan nào bạn có trong lĩnh vực %s?", position),
+			fmt.Sprintf("Theo bạn, những thách thức chính hiện nay mà các chuyên gia trong lĩnh vực %s đang đối mặt là gì?", position),
+			fmt.Sprintf("Bạn có thể chia sẻ hành trình của mình vào lĩnh vực %s không?", position),
+			fmt.Sprintf("Những khía cạnh nào của công việc trong lĩnh vực %s mà bạn thấy đặc biệt thú vị?", position),
+			fmt.Sprintf("Những xu hướng mới nổi nào trong lĩnh vực %s mà bạn cảm thấy hào hứng nhất và tại sao?", position),
+			fmt.Sprintf("Những hiểu lầm phổ biến nào xung quanh nghề nghiệp trong lĩnh vực %s?", position),
+			fmt.Sprintf("Bạn có thể giải thích về bất kỳ sáng kiến phát triển nghề nghiệp nào bạn đã thực hiện trong lĩnh vực %s không?", position),
+			fmt.Sprintf("Bạn sẽ đưa ra lời khuyên gì cho một người mới bắt đầu sự nghiệp trong lĩnh vực %s?", position),
+			fmt.Sprintf("Những khát vọng của bạn cho sự nghiệp trong lĩnh vực %s là gì?", position),
+			fmt.Sprintf("Theo bạn, những kỹ năng quan trọng nhất để thành công trong lĩnh vực %s là gì?", position),
 			fmt.Sprintf("Bạn thường làm thế nào để cập nhật kiến thức mới trong lĩnh vực %s?", position),
 			fmt.Sprintf("Bạn có thể kể về một tình huống khó khăn trong lĩnh vực %s và cách bạn vượt qua nó?", position),
 			fmt.Sprintf("Bạn đã từng làm việc nhóm trong lĩnh vực %s chưa? Vai trò của bạn là gì?", position),
@@ -474,20 +492,20 @@ func (s *Irelia) generatePositionSpecificQuestions(position string, language str
 			"Nếu người quản lý của bạn yêu cầu bạn làm điều gì đó mà bạn không đồng ý, bạn sẽ làm gì?",
 			"Điểm bạn cần cải thiện trong thời điểm này là gì? Bạn có kế hoạch để cải thiện những điểm này chưa?",
 			"Điều gì ở đồng nghiệp cũ/ người quản lý cũ làm bạn khó chịu?",
-        }
-    } else {
-        questions = []string{
-            fmt.Sprintf("Could you describe some of your most engaging projects within %s?", position),
-            fmt.Sprintf("What relevant experiences do you possess in the field of %s?", position),
-            fmt.Sprintf("In your opinion, what are the primary challenges currently facing professionals in %s?", position),
-            fmt.Sprintf("Could you share your journey into the field of %s?", position),
-            fmt.Sprintf("What aspects of working within %s do you find particularly fulfilling?", position),
-            fmt.Sprintf("What emerging trends within %s are you most enthusiastic about and why?", position),
-            fmt.Sprintf("What are some prevalent misconceptions surrounding the profession of %s?", position),
-            fmt.Sprintf("Can you elaborate on any professional development initiatives you've undertaken within %s?", position),
-            fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
-            fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
-            fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
+		}
+	} else {
+		questions = []string{
+			fmt.Sprintf("Could you describe some of your most engaging projects within %s?", position),
+			fmt.Sprintf("What relevant experiences do you possess in the field of %s?", position),
+			fmt.Sprintf("In your opinion, what are the primary challenges currently facing professionals in %s?", position),
+			fmt.Sprintf("Could you share your journey into the field of %s?", position),
+			fmt.Sprintf("What aspects of working within %s do you find particularly fulfilling?", position),
+			fmt.Sprintf("What emerging trends within %s are you most enthusiastic about and why?", position),
+			fmt.Sprintf("What are some prevalent misconceptions surrounding the profession of %s?", position),
+			fmt.Sprintf("Can you elaborate on any professional development initiatives you've undertaken within %s?", position),
+			fmt.Sprintf("What key advice would you offer to an individual beginning their career in %s?", position),
+			fmt.Sprintf("What are your aspirations for your career trajectory within %s?", position),
+			fmt.Sprintf("In your perspective, what are the paramount skills required for success in %s?", position),
 			fmt.Sprintf("How do you stay updated with the latest advancements in %s?", position),
 			fmt.Sprintf("Can you talk about a challenging situation in %s and how you handled it?", position),
 			fmt.Sprintf("Have you collaborated in a team within the %s field? What role did you play?", position),
@@ -498,8 +516,8 @@ func (s *Irelia) generatePositionSpecificQuestions(position string, language str
 			"If your manager asked you to do something that you disagree with, what would you do?",
 			"What are things you need to improve at this point? Do you have a plan for the improvements?",
 			"What is it about your former coworker / former manager that annoys you?",
-        }
-    }
+		}
+	}
 	rand.Seed(time.Now().UnixNano())
 	randomIndex := rand.Intn(len(questions))
 
@@ -529,42 +547,42 @@ func (s *Irelia) substringAfterLastDotOrDash(str string) string {
 // Add transitions to the question content
 func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string, language string, isTimeout bool) string {
 	var responseTokens []string
-    var transitionSentences []string
+	var transitionSentences []string
 
-    if language == "Vietnamese" {
-        responseTokens = []string{
-            "Tôi hiểu.", "Nghe hay đấy.", "Thú vị.", "OK.", "Được rồi.", "Hiểu rồi.",
-        }
-        transitionSentences = []string{
-            "Bây giờ, chúng ta hãy chuyển sang câu hỏi tiếp theo.", "Hãy tiếp tục với câu hỏi tiếp theo.", "Chuyển sang câu hỏi tiếp theo.",
-            "Câu hỏi tiếp theo đây.", "Đây là câu hỏi tiếp theo.",
-        }
-    } else {
-        responseTokens = []string{
-            "I see.", "That sounds good.", "Interesting.", "Got it.", "Alright.", "Understood.",
-        }
-        transitionSentences = []string{
-            "Now, let's move on to the next question.", "Let's proceed to the next question.", "Moving on to the next question.",
-            "Next question coming up.", "Here's the next question.",
-        }
-    }
+	if language == "Vietnamese" {
+		responseTokens = []string{
+			"Tôi hiểu.", "Nghe hay đấy.", "Thú vị.", "OK.", "Được rồi.", "Hiểu rồi.",
+		}
+		transitionSentences = []string{
+			"Bây giờ, chúng ta hãy chuyển sang câu hỏi tiếp theo.", "Hãy tiếp tục với câu hỏi tiếp theo.", "Chuyển sang câu hỏi tiếp theo.",
+			"Câu hỏi tiếp theo đây.", "Đây là câu hỏi tiếp theo.",
+		}
+	} else {
+		responseTokens = []string{
+			"I see.", "That sounds good.", "Interesting.", "Got it.", "Alright.", "Understood.",
+		}
+		transitionSentences = []string{
+			"Now, let's move on to the next question.", "Let's proceed to the next question.", "Moving on to the next question.",
+			"Next question coming up.", "Here's the next question.",
+		}
+	}
 
 	if isTimeout {
-        if language == "Vietnamese" {
-            return "Tôi sẽ chuyển qua câu hỏi khác."
-        }
-        return "We skip to the next question."
-    }
+		if language == "Vietnamese" {
+			return "Tôi sẽ chuyển qua câu hỏi khác."
+		}
+		return "We skip to the next question."
+	}
 
 	rand.Seed(time.Now().UnixNano())
 	if question.QuestionIndex == 1 {
 		// Add an intro for the first question
 		var intro string
-        if language == "Vietnamese" {
-            intro = fmt.Sprintf("Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là %s, rất vui được gặp bạn. Để bắt đầu, tôi sẽ hỏi bạn một số câu hỏi.", s.substringAfterLastDotOrDash(voiceID))
-        } else {
-            intro = fmt.Sprintf("Thanks for joining this interview session today. I'm %s, nice to meet you. To begin with, let me ask you some questions.", s.substringAfterLastDotOrDash(voiceID))
-        }
+		if language == "Vietnamese" {
+			intro = fmt.Sprintf("Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là %s, rất vui được gặp bạn. Để bắt đầu, tôi sẽ hỏi bạn một số câu hỏi.", s.substringAfterLastDotOrDash(voiceID))
+		} else {
+			intro = fmt.Sprintf("Thanks for joining this interview session today. I'm %s, nice to meet you. To begin with, let me ask you some questions.", s.substringAfterLastDotOrDash(voiceID))
+		}
 		fullString := intro + " " + question.Content
 		return fullString
 	}
@@ -576,46 +594,94 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
 
 // Prepare the outro message based on the language
 func (s *Irelia) prepareOutro(language string) string {
-    if language == "Vietnamese" {
-        return "Bạn đã hoàn thành buổi phỏng vấn. Bạn có thể kiểm tra kết quả sau vài phút. Hẹn gặp lại bạn trong một buổi phỏng vấn khác!"
+	if language == "Vietnamese" {
+		return "Bạn đã hoàn thành buổi phỏng vấn. Bạn có thể kiểm tra kết quả sau vài phút. Hẹn gặp lại bạn trong một buổi phỏng vấn khác!"
+	}
+	return "You have successfully submitted the interview. You can check out the results in a few minutes. See you in another interview session!"
+}
+
+func (s *Irelia) loadDemoQuestions(topic string) ([]*pb.DemoQuestion, error) {
+	filename := fmt.Sprintf("%s.jsonl", strings.ReplaceAll(topic, "-", "_"))
+	demoDir := viper.GetString("demo_data_dir")
+    var path string
+
+    if demoDir != "" {
+        path = filepath.Join(demoDir, filename)
+    } else {
+        exePath, err := os.Executable()
+        if err != nil {
+            return nil, fmt.Errorf("failed to get executable path: %w", err)
+        }
+        exeDir := filepath.Dir(exePath)
+        path = filepath.Join(exeDir, "..", "demo", filename)
     }
-    return "You have successfully submitted the interview. You can check out the results in a few minutes. See you in another interview session!"
+
+    s.logger.Info("Trying to open demo file", zap.String("path", path))
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open demo file: %w", err)
+	}
+	defer f.Close()
+
+	var questions []*pb.DemoQuestion
+    reader := bufio.NewReader(f)
+    for {
+        line, err := reader.ReadBytes('\n')
+        if len(line) > 0 {
+            var q pb.DemoQuestion
+            lineStr := strings.TrimSpace(string(line))
+            if lineStr == "" {
+                continue
+            }
+            if err := protojson.Unmarshal([]byte(lineStr), &q); err != nil {
+                return nil, fmt.Errorf("failed to parse demo question: %w", err)
+            }
+            questions = append(questions, &q)
+        }
+        if err != nil {
+            if err.Error() == "EOF" {
+                break
+            }
+            return nil, err
+        }
+    }
+    return questions, nil
 }
 
 // Calculate the overall score based on the total score data
 func getOverallScore(scoreData *pb.TotalScore) float64 {
-    // Grade weights (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0)
-    weights := map[string]float64{
-        "A": 4.0,
-        "B": 3.0,
-        "C": 2.0,
-        "D": 1.0,
-        "F": 0.0,
-    }
-    
-    totalQuestions := scoreData.A + scoreData.B + scoreData.C + scoreData.D + scoreData.F
-    if totalQuestions == 0 {
-        return 0.0
-    }
-    
-    weightedSum := float64(scoreData.A)*weights["A"] + 
-                   float64(scoreData.B)*weights["B"] + 
-                   float64(scoreData.C)*weights["C"] + 
-                   float64(scoreData.D)*weights["D"] + 
-                   float64(scoreData.F)*weights["F"]
-    
-    return weightedSum / float64(totalQuestions)
+	// Grade weights (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0)
+	weights := map[string]float64{
+		"A": 4.0,
+		"B": 3.0,
+		"C": 2.0,
+		"D": 1.0,
+		"F": 0.0,
+	}
+
+	totalQuestions := scoreData.A + scoreData.B + scoreData.C + scoreData.D + scoreData.F
+	if totalQuestions == 0 {
+		return 0.0
+	}
+
+	weightedSum := float64(scoreData.A)*weights["A"] +
+		float64(scoreData.B)*weights["B"] +
+		float64(scoreData.C)*weights["C"] +
+		float64(scoreData.D)*weights["D"] +
+		float64(scoreData.F)*weights["F"]
+
+	return weightedSum / float64(totalQuestions)
 }
 
 // Generate a unique cache key for lip-sync data
 func md5sum(s string) string {
-    h := md5.New()
-    h.Write([]byte(s))
-    return fmt.Sprintf("%x", h.Sum(nil))
+	h := md5.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // Generate a cache key for lip-sync data based on kind, voiceID, language, and content
 func lipSyncCacheKey(kind, voiceID, language, content string, speed int32) string {
-    // kind: "intro", "position", "outro"
-    return fmt.Sprintf("lipsync:%s:%s:%s:%d:%x", kind, voiceID, language, speed, md5sum(content))
+	// kind: "intro", "position", "outro"
+	return fmt.Sprintf("lipsync:%s:%s:%s:%d:%x", kind, voiceID, language, speed, md5sum(content))
 }

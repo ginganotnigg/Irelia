@@ -19,9 +19,8 @@ import (
 // InterviewFavoriteUpdate is the builder for updating InterviewFavorite entities.
 type InterviewFavoriteUpdate struct {
 	config
-	hooks     []Hook
-	mutation  *InterviewFavoriteMutation
-	modifiers []func(*sql.UpdateBuilder)
+	hooks    []Hook
+	mutation *InterviewFavoriteMutation
 }
 
 // Where appends a list predicates to the InterviewFavoriteUpdate builder.
@@ -131,12 +130,6 @@ func (ifu *InterviewFavoriteUpdate) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (ifu *InterviewFavoriteUpdate) Modify(modifiers ...func(u *sql.UpdateBuilder)) *InterviewFavoriteUpdate {
-	ifu.modifiers = append(ifu.modifiers, modifiers...)
-	return ifu
-}
-
 func (ifu *InterviewFavoriteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if err := ifu.check(); err != nil {
 		return n, err
@@ -187,7 +180,6 @@ func (ifu *InterviewFavoriteUpdate) sqlSave(ctx context.Context) (n int, err err
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	_spec.AddModifiers(ifu.modifiers...)
 	if n, err = sqlgraph.UpdateNodes(ctx, ifu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{interviewfavorite.Label}
@@ -203,10 +195,9 @@ func (ifu *InterviewFavoriteUpdate) sqlSave(ctx context.Context) (n int, err err
 // InterviewFavoriteUpdateOne is the builder for updating a single InterviewFavorite entity.
 type InterviewFavoriteUpdateOne struct {
 	config
-	fields    []string
-	hooks     []Hook
-	mutation  *InterviewFavoriteMutation
-	modifiers []func(*sql.UpdateBuilder)
+	fields   []string
+	hooks    []Hook
+	mutation *InterviewFavoriteMutation
 }
 
 // SetUpdatedAt sets the "updated_at" field.
@@ -323,12 +314,6 @@ func (ifuo *InterviewFavoriteUpdateOne) check() error {
 	return nil
 }
 
-// Modify adds a statement modifier for attaching custom logic to the UPDATE statement.
-func (ifuo *InterviewFavoriteUpdateOne) Modify(modifiers ...func(u *sql.UpdateBuilder)) *InterviewFavoriteUpdateOne {
-	ifuo.modifiers = append(ifuo.modifiers, modifiers...)
-	return ifuo
-}
-
 func (ifuo *InterviewFavoriteUpdateOne) sqlSave(ctx context.Context) (_node *InterviewFavorite, err error) {
 	if err := ifuo.check(); err != nil {
 		return _node, err
@@ -396,7 +381,6 @@ func (ifuo *InterviewFavoriteUpdateOne) sqlSave(ctx context.Context) (_node *Int
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	_spec.AddModifiers(ifuo.modifiers...)
 	_node = &InterviewFavorite{config: ifuo.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

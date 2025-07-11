@@ -16,6 +16,8 @@ type Tx struct {
 	Interview *InterviewClient
 	// InterviewFavorite is the client for interacting with the InterviewFavorite builders.
 	InterviewFavorite *InterviewFavoriteClient
+	// PublicQuestion is the client for interacting with the PublicQuestion builders.
+	PublicQuestion *PublicQuestionClient
 	// Question is the client for interacting with the Question builders.
 	Question *QuestionClient
 
@@ -151,6 +153,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Interview = NewInterviewClient(tx.config)
 	tx.InterviewFavorite = NewInterviewFavoriteClient(tx.config)
+	tx.PublicQuestion = NewPublicQuestionClient(tx.config)
 	tx.Question = NewQuestionClient(tx.config)
 }
 

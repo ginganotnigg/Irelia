@@ -32,6 +32,18 @@ func (f InterviewFavoriteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InterviewFavoriteMutation", m)
 }
 
+// The PublicQuestionFunc type is an adapter to allow the use of ordinary
+// function as PublicQuestion mutator.
+type PublicQuestionFunc func(context.Context, *ent.PublicQuestionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PublicQuestionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PublicQuestionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PublicQuestionMutation", m)
+}
+
 // The QuestionFunc type is an adapter to allow the use of ordinary
 // function as Question mutator.
 type QuestionFunc func(context.Context, *ent.QuestionMutation) (ent.Value, error)

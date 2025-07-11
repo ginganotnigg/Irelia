@@ -5,6 +5,7 @@ package ent
 import (
 	"irelia/pkg/ent/interview"
 	"irelia/pkg/ent/interviewfavorite"
+	"irelia/pkg/ent/publicquestion"
 	"irelia/pkg/ent/question"
 	"irelia/schema"
 	"time"
@@ -72,6 +73,37 @@ func init() {
 	interviewfavorite.DefaultUpdatedAt = interviewfavoriteDescUpdatedAt.Default.(func() time.Time)
 	// interviewfavorite.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	interviewfavorite.UpdateDefaultUpdatedAt = interviewfavoriteDescUpdatedAt.UpdateDefault.(func() time.Time)
+	publicquestionMixin := schema.PublicQuestion{}.Mixin()
+	publicquestionMixinFields0 := publicquestionMixin[0].Fields()
+	_ = publicquestionMixinFields0
+	publicquestionFields := schema.PublicQuestion{}.Fields()
+	_ = publicquestionFields
+	// publicquestionDescCreatedAt is the schema descriptor for created_at field.
+	publicquestionDescCreatedAt := publicquestionMixinFields0[0].Descriptor()
+	// publicquestion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	publicquestion.DefaultCreatedAt = publicquestionDescCreatedAt.Default.(func() time.Time)
+	// publicquestionDescUpdatedAt is the schema descriptor for updated_at field.
+	publicquestionDescUpdatedAt := publicquestionMixinFields0[1].Descriptor()
+	// publicquestion.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	publicquestion.DefaultUpdatedAt = publicquestionDescUpdatedAt.Default.(func() time.Time)
+	// publicquestion.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	publicquestion.UpdateDefaultUpdatedAt = publicquestionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// publicquestionDescPosition is the schema descriptor for position field.
+	publicquestionDescPosition := publicquestionFields[0].Descriptor()
+	// publicquestion.PositionValidator is a validator for the "position" field. It is called by the builders before save.
+	publicquestion.PositionValidator = publicquestionDescPosition.Validators[0].(func(string) error)
+	// publicquestionDescExperience is the schema descriptor for experience field.
+	publicquestionDescExperience := publicquestionFields[1].Descriptor()
+	// publicquestion.ExperienceValidator is a validator for the "experience" field. It is called by the builders before save.
+	publicquestion.ExperienceValidator = publicquestionDescExperience.Validators[0].(func(string) error)
+	// publicquestionDescLanguage is the schema descriptor for language field.
+	publicquestionDescLanguage := publicquestionFields[2].Descriptor()
+	// publicquestion.LanguageValidator is a validator for the "language" field. It is called by the builders before save.
+	publicquestion.LanguageValidator = publicquestionDescLanguage.Validators[0].(func(string) error)
+	// publicquestionDescContent is the schema descriptor for content field.
+	publicquestionDescContent := publicquestionFields[3].Descriptor()
+	// publicquestion.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	publicquestion.ContentValidator = publicquestionDescContent.Validators[0].(func(string) error)
 	questionMixin := schema.Question{}.Mixin()
 	questionMixinFields0 := questionMixin[0].Fields()
 	_ = questionMixinFields0
