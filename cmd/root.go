@@ -45,7 +45,7 @@ func Execute() {
     }
     logger := logging.Logger(context.TODO())
 
-    startSSE()
+    // startSSE()
 	go startGRPC(logger)
 	startGateway(logger)
 }

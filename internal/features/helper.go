@@ -254,7 +254,7 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 	}
 
 	questions := job.Questions
-	var isTimeout bool
+	isTimeout := false
 	if len(questions) == 0 {
 		s.logger.Debug("No pre-prepared questions, generating from context", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID))
@@ -265,12 +265,10 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 				zap.Error(err))
 			return fmt.Errorf("failed to retrieve submissions: %w", err)
 		}
-		// Check if the last question already answered
-		if len(submissions) > 0 && submissions[len(submissions)-1].Answer == "" {
-			isTimeout = true
-		} else {
-			isTimeout = false
-		}
+		// // Check if the last question already answered
+		// if job.NextQuestionID > 1 && submissions[len(submissions)-1].Answer == "" {
+		// 	isTimeout = true
+		// }
 
 		s.logger.Debug("Retrieved submissions for question generation", zap.String("interviewID", job.InterviewID),
 			zap.Int("submissionCount", len(submissions)))
@@ -569,9 +567,14 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
 
 	if isTimeout {
 		if language == "Vietnamese" {
-			return "Tôi sẽ chuyển qua câu hỏi khác."
+			responseTokens = []string{
+				"Bạn đã hết thời gian trả lời.",
+			}
+		} else {
+			responseTokens = []string{
+				"You have run out of time to answer.",
+			}
 		}
-		return "We skip to the next question."
 	}
 
 	rand.Seed(time.Now().UnixNano())

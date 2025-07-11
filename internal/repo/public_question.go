@@ -25,10 +25,10 @@ func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionR
     if req.Page == 0 {
         req.Page = 1
     }
-    
+
 	query := r.client.PublicQuestion.Query()
 	if req.Pos != nil {
-		query = query.Where(epq.PositionContainsFold(*req.Pos))
+		query = query.Where(epq.PositionEQ(*req.Pos))
 	}
 	if req.Exp != nil {
 		query = query.Where(epq.ExperienceEQ(*req.Exp))
@@ -54,6 +54,8 @@ func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionR
             epq.FieldAnswer,
             epq.FieldPosition,
             epq.FieldExperience,
+            epq.FieldCreatedAt,
+            epq.FieldUpdatedAt,
         ).
         All(ctx)
     if err != nil {

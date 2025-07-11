@@ -182,8 +182,8 @@ func (s *Irelia) SubmitAnswer(ctx context.Context, req *pb.SubmitAnswerRequest) 
 		return nil, status.Errorf(codes.Unauthenticated, "Failed to extract user ID from context: %v", err)
 	}
 
-	timerKey := fmt.Sprintf("%s:%d", req.InterviewId, req.Index)
-	s.timerManager.cancelTimer(timerKey)
+	// timerKey := fmt.Sprintf("%s:%d", req.InterviewId, req.Index)
+	// s.timerManager.cancelTimer(timerKey)
 
 	question, err := s.repo.Question.Get(ctx, req.InterviewId, req.Index)
 	if err != nil {
@@ -251,7 +251,7 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 	// Determine if this is the last question
 	isLastQuestion := req.QuestionIndex == interview.TotalQuestions
 
-	s.timerManager.startTimer(req.InterviewId, req.QuestionIndex, userID, s.handleQuestionTimeout)
+	// s.timerManager.startTimer(req.InterviewId, req.QuestionIndex, userID, s.handleQuestionTimeout)
 
 	if !isLastQuestion {
 		// Prepare additional questions based on configuration
@@ -292,7 +292,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		return nil, status.Errorf(codes.Unauthenticated, "Failed to extract user ID from context: %v", err)
 	}
 
-	s.timerManager.cleanupInterviewTimers(req.InterviewId)
+	// s.timerManager.cleanupInterviewTimers(req.InterviewId)
 
 	interview, err := s.repo.Interview.Get(ctx, req.InterviewId)
 	if err != nil {
