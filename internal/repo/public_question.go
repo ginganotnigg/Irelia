@@ -9,7 +9,7 @@ import (
 )
 
 type IPublicQuestion interface {
-    List(ctx context.Context, req *pb.GetPublicQuestionRequest) ([]*ent.PublicQuestion, error)
+    List(ctx context.Context, req *pb.GetPublicQuestionRequest) ([]*ent.PublicQuestion, int32, int32, int32, error)
     CreateBulk(ctx context.Context, questions []*ent.PublicQuestion) error
 }
 
@@ -21,7 +21,11 @@ func NewPublicQuestionRepository(client *ent.Client) IPublicQuestion {
     return &EntPublicQuestion{client: client}
 }
 
-func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionRequest) ([]*ent.PublicQuestion, error) {
+func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionRequest) ([]*ent.PublicQuestion, int32, int32, int32, error) {
+    if req.Page == 0 {
+        req.Page = 1
+    }
+    
 	query := r.client.PublicQuestion.Query()
 	if req.Pos != nil {
 		query = query.Where(epq.PositionContainsFold(*req.Pos))
@@ -32,14 +36,17 @@ func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionR
 	if req.Lang != nil {
 		query = query.Where(epq.LanguageEQ(*req.Lang))
 	}
+    totalCount, _ := query.Count(ctx)
+
     const pageSize = 20
     page := int(req.Page)
     if page < 1 {
         page = 1
     }
     offset := (page - 1) * pageSize
+    totalPage := int32((totalCount-1)/pageSize + 1)
 
-    return query.Order(ent.Desc(epq.FieldID)).
+    questions, err := query.Order(ent.Desc(epq.FieldID)).
         Limit(pageSize).
         Offset(offset).
         Select(
@@ -49,6 +56,10 @@ func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionR
             epq.FieldExperience,
         ).
         All(ctx)
+    if err != nil {
+        return nil, 0, 0, 0, err
+    }
+    return questions, int32(totalCount), int32(pageSize), totalPage, nil
 }
 
 func (r *EntPublicQuestion) CreateBulk(ctx context.Context, questions []*ent.PublicQuestion) error {

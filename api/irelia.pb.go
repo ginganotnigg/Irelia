@@ -2943,7 +2943,11 @@ func (x *GetPublicQuestionRequest) GetLang() string {
 
 type GetPublicQuestionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Questions     []*PublicQuestion      `protobuf:"bytes,1,rep,name=questions,proto3" json:"questions,omitempty"`
+	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage       int32                  `protobuf:"varint,2,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	TotalPages    int32                  `protobuf:"varint,3,opt,name=total_pages,json=totalPages,proto3" json:"total_pages,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Questions     []*PublicQuestion      `protobuf:"bytes,5,rep,name=questions,proto3" json:"questions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2976,6 +2980,34 @@ func (x *GetPublicQuestionResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use GetPublicQuestionResponse.ProtoReflect.Descriptor instead.
 func (*GetPublicQuestionResponse) Descriptor() ([]byte, []int) {
 	return file_api_irelia_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *GetPublicQuestionResponse) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetPublicQuestionResponse) GetPerPage() int32 {
+	if x != nil {
+		return x.PerPage
+	}
+	return 0
+}
+
+func (x *GetPublicQuestionResponse) GetTotalPages() int32 {
+	if x != nil {
+		return x.TotalPages
+	}
+	return 0
+}
+
+func (x *GetPublicQuestionResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 func (x *GetPublicQuestionResponse) GetQuestions() []*PublicQuestion {
@@ -3228,9 +3260,15 @@ const file_api_irelia_proto_rawDesc = "" +
 	"\x04lang\x18\x04 \x01(\tH\x02R\x04lang\x88\x01\x01B\x06\n" +
 	"\x04_posB\x06\n" +
 	"\x04_expB\a\n" +
-	"\x05_lang\"Q\n" +
-	"\x19GetPublicQuestionResponse\x124\n" +
-	"\tquestions\x18\x01 \x03(\v2\x16.irelia.PublicQuestionR\tquestions*\xac\x01\n" +
+	"\x05_lang\"\xc2\x01\n" +
+	"\x19GetPublicQuestionResponse\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x19\n" +
+	"\bper_page\x18\x02 \x01(\x05R\aperPage\x12\x1f\n" +
+	"\vtotal_pages\x18\x03 \x01(\x05R\n" +
+	"totalPages\x12\x1f\n" +
+	"\vtotal_count\x18\x04 \x01(\x05R\n" +
+	"totalCount\x124\n" +
+	"\tquestions\x18\x05 \x03(\v2\x16.irelia.PublicQuestionR\tquestions*\xac\x01\n" +
 	"\x0fInterviewStatus\x12\x1c\n" +
 	"\x18INTERVIEW_STATUS_UNKNOWN\x10\x00\x12 \n" +
 	"\x1cINTERVIEW_STATUS_IN_PROGRESS\x10\x01\x12\x1c\n" +

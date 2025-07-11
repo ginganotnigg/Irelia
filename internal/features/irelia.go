@@ -482,13 +482,13 @@ func (s *Irelia) GetInterviewHistory(ctx context.Context, req *pb.GetInterviewHi
 		convertedUserId = &temp
 	}
 
-	interviews, totalCount, size, totalPages, err := s.repo.Interview.List(ctx, req, convertedUserId)
+	interviews, _, size, totalPages, err := s.repo.Interview.List(ctx, req, convertedUserId)
 	if err != nil {
 		s.logger.Error("Failed to retrieve interview history", zap.Error(err))
 		return nil, fmt.Errorf("failed to retrieve interview history: %v", err)
 	}
 
-	history := make([]*pb.InterviewSummary, 0, totalCount)
+	var history []*pb.InterviewSummary
 	for _, entInterview := range interviews {
 		// Ensure all fields are correctly mapped
 		history = append(history, &pb.InterviewSummary{
@@ -554,7 +554,7 @@ func (s *Irelia) DemoInterview(ctx context.Context, req *pb.DemoRequest) (*pb.De
 }
 
 func (s *Irelia) GetPublicQuestion(ctx context.Context, req *pb.GetPublicQuestionRequest) (*pb.GetPublicQuestionResponse, error) {
-	questions, err := s.repo.PublicQuestion.List(ctx, req)
+	questions, totalCount, size, totalPages, err := s.repo.PublicQuestion.List(ctx, req)
 	if err != nil {
 		s.logger.Error("Failed to get public questions", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to get public questions: %v", err)
@@ -573,6 +573,10 @@ func (s *Irelia) GetPublicQuestion(ctx context.Context, req *pb.GetPublicQuestio
 		})
 	}
 	return &pb.GetPublicQuestionResponse{
-		Questions: pbQuestions,
+		Page:       req.Page,
+		PerPage:    size,
+		TotalPages: totalPages,
+		TotalCount: totalCount,
+		Questions:  pbQuestions,
 	}, nil
 }

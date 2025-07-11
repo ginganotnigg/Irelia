@@ -418,5 +418,9 @@ message GetPublicQuestionRequest {
 }
 
 message GetPublicQuestionResponse {
-  repeated PublicQuestion questions = 1;
+  int32 page = 1;
+  int32 per_page = 2;
+  int32 total_pages = 3;
+  int32 total_count = 4;
+  repeated PublicQuestion questions = 5;
 }
