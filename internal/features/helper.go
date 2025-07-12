@@ -444,15 +444,19 @@ func (s *Irelia) generateIntroQuestion(language string) string {
 
 	if language == "Vietnamese" {
 		questions = []string{
-			"Vui lòng cung cấp một cái nhìn tổng quan ngắn gọn về nền tảng chuyên môn và các kỹ năng chính của bạn.",
-			"Nhìn lại hành trình nghề nghiệp của bạn, đâu là một lĩnh vực bạn đang tích cực phát triển và tại sao?",
-			"Những điểm mạnh cốt lõi nào bạn nghĩ rằng bạn mang lại cho vai trò này và bạn đã thể hiện chúng như thế nào trong quá khứ?",
+			"Xin chào, bạn có thể giới thiệu về bản thân mình không?",
+			"Chào bạn, bạn có thể cho tôi biết một chút về bản thân mình được không?",
+			"Xin chào, bạn có thể giới thiệu ngắn gọn về bản thân mình không?",
+			"Chào bạn, bạn có thể chia sẻ một chút về bạn không?",
+			"Xin chào, bạn có thể giới thiệu về bản thân mình được không?",
 		}
 	} else {
 		questions = []string{
-			"Please provide a brief overview of your professional background and key qualifications.",
-			"Reflecting on your professional journey, what is one area you are actively working to develop and why?",
-			"What core strengths do you believe you bring to a role like this, and how have you demonstrated them in the past?",
+			"Hello, can you introduce yourself?",
+			"Hi, could you tell me a bit about yourself?",
+			"Hello, please introduce yourself briefly.",
+			"Hi, can you share a little about who you are?",
+			"Hello, would you mind introducing yourself?",
 		}
 	}
 

@@ -237,6 +237,30 @@ func (s *Irelia) GetNextQuestion(ctx context.Context, req *pb.QuestionRequest) (
 	question, err := s.repo.Question.Get(ctx, req.InterviewId, req.QuestionIndex)
 	if err != nil {
 		s.logger.Warn("Failed to retrieve next question", zap.String("interviewId", req.InterviewId), zap.Int32("index", req.QuestionIndex), zap.Error(err))
+
+        // Check if a preparation job is already running for this question
+        s.preparationMutex.RLock()
+        preparing := s.preparationStatus[req.InterviewId] != nil && s.preparationStatus[req.InterviewId][req.QuestionIndex]
+        s.preparationMutex.RUnlock()
+
+        if !preparing {
+            // Start a preparation job if not already running
+            job := QuestionPreparationJob{
+                InterviewID:    req.InterviewId,
+                UserID:         userID,
+                NextQuestionID: req.QuestionIndex,
+                Interview:      interview,
+                Questions:      nil,
+            }
+            s.ensureQuestionWorkerPool()
+            enqueued := s.questionWorkerPool.EnqueueJob(s.logger, job)
+            if !enqueued {
+                s.logger.Warn("Failed to enqueue question preparation job",
+                    zap.String("interviewID", job.InterviewID),
+                    zap.Int32("nextQuestionID", job.NextQuestionID))
+            }
+        }
+
 		return &pb.QuestionResponse{
 			QuestionId:     req.QuestionIndex,
 			Content:        "",

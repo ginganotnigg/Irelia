@@ -36,9 +36,9 @@ func (Interview) Fields() []ent.Field {
         field.Int32("remaining_questions").Default(10),
         field.JSON("total_score", &pb.TotalScore{}).Optional(),
         field.Float("overall_score").Default(0),
-        field.String("positive_feedback").Optional(),
-        field.String("actionable_feedback").Optional(),
-        field.String("final_comment").Optional(),
+        field.Text("positive_feedback").Optional(),
+        field.Text("actionable_feedback").Optional(),
+        field.Text("final_comment").Optional(),
         field.Int32("status").GoType(pb.InterviewStatus(0)),
     }
 }

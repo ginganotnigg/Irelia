@@ -27,15 +27,15 @@ func (r *EntPublicQuestion) List(ctx context.Context, req *pb.GetPublicQuestionR
     }
 
 	query := r.client.PublicQuestion.Query()
-	if req.Pos != nil {
-		query = query.Where(epq.PositionEQ(*req.Pos))
-	}
-	if req.Exp != nil {
-		query = query.Where(epq.ExperienceEQ(*req.Exp))
-	}
-	if req.Lang != nil {
-		query = query.Where(epq.LanguageEQ(*req.Lang))
-	}
+	if req.Pos != nil && *req.Pos != "" {
+        query = query.Where(epq.PositionEQ(*req.Pos))
+    }
+    if req.Exp != nil && *req.Exp != "" {
+        query = query.Where(epq.ExperienceEQ(*req.Exp))
+    }
+    if req.Lang != nil && *req.Lang != "" {
+        query = query.Where(epq.LanguageEQ(*req.Lang))
+    }
     totalCount, _ := query.Count(ctx)
 
     const pageSize = 20

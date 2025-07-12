@@ -17,7 +17,15 @@ import (
     api "irelia/api"
 )
 
+func maxBytesMiddleware(limit int64, next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        r.Body = http.MaxBytesReader(w, r.Body, limit)
+        next.ServeHTTP(w, r)
+    })
+}
+
 func startGateway(logger *zap.Logger) {
+    const maxSize = 10 * 1024 * 1024 // 10 MB
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
@@ -35,9 +43,11 @@ func startGateway(logger *zap.Logger) {
         logger.Fatal("Failed to register gateway handler", zap.Error(err))
     }
 
+    handler := maxBytesMiddleware(maxSize, mux)
+
     httpServer := &http.Server{
         Addr:    fmt.Sprintf(":%s", viper.GetString("server.gwport")),
-        Handler: mux,
+        Handler: handler,
     }
 
     go func() {
