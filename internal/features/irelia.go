@@ -121,12 +121,7 @@ func (s *Irelia) StartInterview(ctx context.Context, req *pb.StartInterviewReque
 
 	strings := []string{}
 	introQuestion := s.generateIntroQuestion(interview.Language)
-	if !req.SkipIntro {
-		strings = append(strings, introQuestion)
-	}
-
-	fieldQuestion := s.generatePositionSpecificQuestions(interview.Position, interview.Language)
-	strings = append(strings, fieldQuestion)
+	strings = append(strings, introQuestion)
 
 	questions := []*ent.Question{}
 	for i, content := range strings {
