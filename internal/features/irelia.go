@@ -348,18 +348,18 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 
 	// Get submissions from answers
 	submissionsForDarius := make([]*pb.AnswerData, len(answers))
-	submissionsForKarma := make([]*pb.AnswerData, len(answers))
+	// submissionsForKarma := make([]*pb.AnswerData, len(answers))
 	for i, answer := range answers {
 		submissionsForDarius[i] = &pb.AnswerData{
 			Index:    answer.Index,
 			Question: &answer.Content,
 			Answer:   answer.Answer,
 		}
-		submissionsForKarma[i] = &pb.AnswerData{
-			Index:       answer.Index,
-			Answer:      answer.Answer,
-			RecordProof: &answer.RecordProof,
-		}
+		// submissionsForKarma[i] = &pb.AnswerData{
+		// 	Index:       answer.Index,
+		// 	Answer:      answer.Answer,
+		// 	RecordProof: &answer.RecordProof,
+		// }
 	}
 
 	// Get both request
@@ -368,10 +368,10 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		Submissions: submissionsForDarius,
 		Skills:      interview.Skills,
 	}
-	karmaReq := &pb.ScoreFluencyRequest{
-		InterviewId: interview.ID,
-		Submissions: submissionsForKarma,
-	}
+	// karmaReq := &pb.ScoreFluencyRequest{
+	// 	InterviewId: interview.ID,
+	// 	Submissions: submissionsForKarma,
+	// }
 
 	go func() {
 		bgCtx := context.Background()
@@ -380,11 +380,11 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 			s.logger.Error("Failed to score by Darius", zap.Error(err))
 			return
 		}
-		karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
-		if err != nil {
-			s.logger.Error("Failed to score by Karma", zap.Error(err))
-			return
-		}
+		// karmaResp, err := s.callKarmaForScore(bgCtx, karmaReq)
+		// if err != nil {
+		// 	s.logger.Error("Failed to score by Karma", zap.Error(err))
+		// 	return
+		// }
 
 		// Update the database with scoring results
 		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_PENDING
@@ -417,7 +417,7 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 		}
 
 		// Update the interview with feedback and total score
-		totalLength := len(dariusResp.Skills) + len(karmaResp.Skills)
+		totalLength := len(dariusResp.Skills) //+ len(karmaResp.Skills)
 		skills := make([]string, 0, totalLength)
 		skillsScore := make([]string, 0, totalLength)
 
@@ -426,16 +426,16 @@ func (s *Irelia) SubmitInterview(ctx context.Context, req *pb.SubmitInterviewReq
 			skillsScore = append(skillsScore, ele.Score)
 		}
 
-		for skill, score := range karmaResp.Skills {
-			skills = append(skills, skill)
-			skillsScore = append(skillsScore, score)
-		}
+		// for skill, score := range karmaResp.Skills {
+		// 	skills = append(skills, skill)
+		// 	skillsScore = append(skillsScore, score)
+		// }
 
 		interview.Skills = skills
 		interview.SkillsScore = skillsScore
 		interview.TotalScore = dariusResp.TotalScore
 		interview.PositiveFeedback = dariusResp.PositiveFeedback
-		interview.ActionableFeedback = dariusResp.ActionableFeedback + " " + karmaResp.ActionableFeedback
+		interview.ActionableFeedback = dariusResp.ActionableFeedback //+ " " + karmaResp.ActionableFeedback
 		interview.FinalComment = dariusResp.FinalComment
 		interview.Status = pb.InterviewStatus_INTERVIEW_STATUS_COMPLETED
 		interview.OverallScore = getOverallScore(interview.TotalScore)
