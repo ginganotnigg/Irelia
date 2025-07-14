@@ -444,19 +444,19 @@ func (s *Irelia) generateIntroQuestion(language string) string {
 
 	if language == "Vietnamese" {
 		questions = []string{
-			"Xin chào, bạn có thể giới thiệu về bản thân mình không?",
-			"Chào bạn, bạn có thể cho tôi biết một chút về bản thân mình được không?",
-			"Xin chào, bạn có thể giới thiệu ngắn gọn về bản thân mình không?",
-			"Chào bạn, bạn có thể chia sẻ một chút về bạn không?",
-			"Xin chào, bạn có thể giới thiệu về bản thân mình được không?",
+			"Bạn có thể giới thiệu về bản thân mình không?",
+			"Bạn có thể cho tôi biết một chút về bản thân mình được không?",
+			"Bạn có thể giới thiệu ngắn gọn về bản thân mình không?",
+			"Bạn có thể chia sẻ một chút về bạn không?",
+			"Bạn có thể giới thiệu về bản thân mình được không?",
 		}
 	} else {
 		questions = []string{
-			"Hello, can you introduce yourself?",
-			"Hi, could you tell me a bit about yourself?",
-			"Hello, please introduce yourself briefly.",
-			"Hi, can you share a little about who you are?",
-			"Hello, would you mind introducing yourself?",
+			"Can you introduce yourself?",
+			"Could you tell me a bit about yourself?",
+			"Please introduce yourself briefly.",
+			"Can you share a little about who you are?",
+			"Would you mind introducing yourself?",
 		}
 	}
 
