@@ -294,13 +294,14 @@ func (s *Irelia) prepareQuestion(ctx context.Context, job QuestionPreparationJob
 		if job.NextQuestionID+int32(i) > job.Interview.TotalQuestions {
 			break
 		}
-
-		publicQuestions = append(publicQuestions, &ent.PublicQuestion{
-			Position:   job.Interview.Position,
-			Experience: job.Interview.Experience,
-			Language:   job.Interview.Language,
-			Content:    question.Content,
-		})
+		if job.NextQuestionID+int32(i) > 1 {
+			publicQuestions = append(publicQuestions, &ent.PublicQuestion{
+				Position:   job.Interview.Position,
+				Experience: job.Interview.Experience,
+				Language:   job.Interview.Language,
+				Content:    question.Content,
+			})
+		}
 
 		s.logger.Debug("Preparing lip sync for question", zap.String("interviewID", job.InterviewID),
 			zap.Int32("questionID", job.NextQuestionID+int32(i)))
