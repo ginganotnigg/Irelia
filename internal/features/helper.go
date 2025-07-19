@@ -587,7 +587,13 @@ func (s *Irelia) addTransitionsToQuestion(question *ent.Question, voiceID string
 		// Add an intro for the first question
 		var intro string
 		if language == "Vietnamese" {
-			intro = fmt.Sprintf("Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là %s, rất vui được gặp bạn. Để bắt đầu, tôi sẽ hỏi bạn một số câu hỏi.", s.substringAfterLastDotOrDash(voiceID))
+			var str string
+			if voiceID == "vi-VN-HoaiMyNeural" || strings.Contains(voiceID, "HoaiMy") {
+				str = "Hoài My"
+			} else {
+				str = "Nam Minh"
+			}
+			intro = fmt.Sprintf("Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là %s, rất vui được gặp bạn. Để bắt đầu, tôi sẽ hỏi bạn một số câu hỏi.", str)
 		} else {
 			intro = fmt.Sprintf("Thanks for joining this interview session today. I'm %s, nice to meet you. To begin with, let me ask you some questions.", s.substringAfterLastDotOrDash(voiceID))
 		}
